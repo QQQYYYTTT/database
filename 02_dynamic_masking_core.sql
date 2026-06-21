@@ -387,6 +387,7 @@ DROP TEMPORARY TABLE IF EXISTS tmp_masking_policy_seed;
 -- 三、仅重建本次目标对象
 -- =========================================================
 
+DROP PROCEDURE IF EXISTS SP_QUERY_STUDENT_SCORES;
 DROP PROCEDURE IF EXISTS SP_QUERY_STUDENTS;
 DROP FUNCTION IF EXISTS FN_MASK_BY_ROLE;
 DROP FUNCTION IF EXISTS FN_APPLY_MASK;
@@ -682,6 +683,63 @@ BEGIN
     RETURN FN_APPLY_MASK(p_raw_value, v_masking_type, v_params);
 END$$
 
+CREATE PROCEDURE SP_QUERY_STUDENT_SCORES(
+    IN p_user_id BIGINT,
+    IN p_role_code VARCHAR(50),
+    IN p_student_no VARCHAR(30),
+    IN p_course_name VARCHAR(100),
+    IN p_semester_name VARCHAR(100)
+)
+BEGIN
+    DECLARE v_role_id BIGINT DEFAULT NULL;
+    DECLARE v_role_code VARCHAR(50);
+    DECLARE v_student_no VARCHAR(30);
+    DECLARE v_course_name VARCHAR(100);
+    DECLARE v_semester_name VARCHAR(100);
+    DECLARE v_error_message VARCHAR(255);
+
+    SET v_role_code = NULLIF(TRIM(p_role_code), '');
+    SET v_student_no = NULLIF(TRIM(p_student_no), '');
+    SET v_course_name = NULLIF(TRIM(p_course_name), '');
+    SET v_semester_name = NULLIF(TRIM(p_semester_name), '');
+
+    IF v_role_code IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '角色编码不能为空';
+    END IF;
+
+    SELECT r.id
+      INTO v_role_id
+      FROM role r
+     WHERE r.role_code = v_role_code
+       AND r.enabled = 1
+     LIMIT 1;
+
+    IF v_role_id IS NULL THEN
+        SET v_error_message = CONCAT('角色不存在或已禁用: ', v_role_code);
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = v_error_message;
+    END IF;
+
+    SELECT
+        v.score_id,
+        v.student_id,
+        v.student_no,
+        v.student_name,
+        v.course_code,
+        v.course_name,
+        v.semester_name,
+        FN_MASK_BY_ROLE(v_role_id, 'v_student_score_detail', 'score', CAST(v.score AS CHAR)) AS score,
+        v.score_level
+    FROM v_student_score_detail v
+    WHERE (v_student_no IS NULL OR v.student_no = v_student_no)
+      AND (v_course_name IS NULL OR v.course_name LIKE CONCAT('%', v_course_name, '%'))
+      AND (v_semester_name IS NULL OR v.semester_name = v_semester_name)
+    ORDER BY v.student_no, v.course_name;
+
+    -- p_user_id reserved for future audit logging.
+END$$
+
 CREATE PROCEDURE SP_QUERY_STUDENTS(
     IN p_user_id BIGINT,
     IN p_role_code VARCHAR(50),
@@ -773,6 +831,13 @@ DELIMITER ;
 -- 5. 非法角色编码测试
 -- CALL SP_QUERY_STUDENTS(5, 'NOT_EXISTS_ROLE', NULL, NULL, NULL);
 
+-- 5.1 成绩角色测试
+-- CALL SP_QUERY_STUDENT_SCORES(1, 'SUPER_ADMIN', NULL, NULL, NULL);
+-- CALL SP_QUERY_STUDENT_SCORES(5, 'TEACHER', NULL, NULL, NULL);
+-- CALL SP_QUERY_STUDENT_SCORES(6, 'ANALYST', NULL, NULL, NULL);
+-- CALL SP_QUERY_STUDENT_SCORES(8, 'NORMAL', NULL, NULL, NULL);
+-- CALL SP_QUERY_STUDENT_SCORES(9, 'STUDENT', '2023001', NULL, NULL);
+
 -- 6. 直接验证 FN_APPLY_MASK 的各类脱敏
 -- SELECT FN_APPLY_MASK('13800000001', 'NO_MASK', JSON_OBJECT()) AS no_mask_result;
 -- SELECT FN_APPLY_MASK('13800000001', 'FULL_MASK', JSON_OBJECT()) AS full_mask_result;
@@ -794,6 +859,14 @@ DELIMITER ;
 --     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'NORMAL'), 'v_student_profile', 'phone', '13800000001') AS normal_phone,
 --     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'ADMIN'), 'v_student_profile', 'phone', '13800000001') AS admin_default_fallback_phone,
 --     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'TEACHER'), 'v_student_profile', 'gender', 'M') AS no_rule_returns_raw_value;
+
+-- 8. 成绩同值跨角色测试
+-- SELECT
+--     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'SUPER_ADMIN'), 'v_student_score_detail', 'score', '92.50') AS super_admin_score,
+--     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'TEACHER'), 'v_student_score_detail', 'score', '92.50') AS teacher_score,
+--     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'ANALYST'), 'v_student_score_detail', 'score', '92.50') AS analyst_score,
+--     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'NORMAL'), 'v_student_score_detail', 'score', '92.50') AS normal_score,
+--     FN_MASK_BY_ROLE((SELECT id FROM role WHERE role_code = 'STUDENT'), 'v_student_score_detail', 'score', '92.50') AS student_score;
 
 -- 预期差异说明
 -- SUPER_ADMIN：敏感字段返回原始值。
