@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统登录</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="login-body">
+<div id="app" class="login-shell" v-cloak>
+    <section class="login-visual">
+        <div class="login-visual-mask"></div>
+        <div class="login-visual-grid"></div>
+        <div class="login-visual-content">
+            <p class="login-kicker">SPRING SECURITY + JWT</p>
+            <h1>基于角色与权限树的动态权限管理平台</h1>
+            <p class="login-description">
+                登录成功后系统将签发 JWT，并根据当前账号的菜单权限动态生成左侧导航，
+                同时统一控制接口访问权限。
+            </p>
+            <div class="login-tags">
+                <span>动态菜单</span>
+                <span>角色授权</span>
+                <span>接口鉴权</span>
+                <span>JWT</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="login-panel">
+        <div class="login-form-wrap">
+            <div class="login-form-head">
+                <h2>欢迎登录</h2>
+                <p>默认超级管理员账号：<strong>admin / admin</strong></p>
+            </div>
+
+            <form class="login-form" @submit.prevent="handleLogin">
+                <label class="login-field">
+                    <span><i>*</i> 用户名</span>
+                    <div class="login-input-wrap">
+                        <span class="field-icon" v-html="icons.user"></span>
+                        <input
+                            v-model.trim="form.userName"
+                            type="text"
+                            placeholder="请输入用户名"
+                            autocomplete="username"
+                        >
+                    </div>
+                </label>
+
+                <label class="login-field">
+                    <span><i>*</i> 密码</span>
+                    <div class="login-input-wrap">
+                        <span class="field-icon" v-html="icons.lock"></span>
+                        <input
+                            v-model.trim="form.userPwd"
+                            :type="showPassword ? 'text' : 'password'"
+                            placeholder="请输入密码"
+                            autocomplete="current-password"
+                        >
+                        <button class="field-action" type="button" :title="showPassword ? '隐藏密码' : '显示密码'" @click="togglePassword">
+                            <span v-html="showPassword ? icons.eyeClose : icons.eyeOpen"></span>
+                        </button>
+                    </div>
+                </label>
+
+                <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
+
+                <button class="login-submit" type="submit" :disabled="loading">
+                    {{ loading ? '登录中...' : '登录' }}
+                </button>
+            </form>
+        </div>
+    </section>
+</div>
+
+<script src="/assets/vendor/vue.global.prod.js"></script>
+<script src="/assets/js/login.js"></script>
+</body>
+</html>

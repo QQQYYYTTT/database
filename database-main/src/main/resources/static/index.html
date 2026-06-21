@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限管理控制台</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="admin-body">
+<div id="app" class="admin-shell" :class="{ collapsed: isCollapsed }" v-cloak>
+    <aside class="admin-sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-logo">权限</div>
+            <div v-if="!isCollapsed" class="brand-copy">
+                <strong>权限管理控制台</strong>
+                <span>Spring Security + JWT 动态权限</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-menu" v-if="flatMenus.length > 0">
+            <button
+                v-for="menu in flatMenus"
+                :key="menu.id"
+                class="sidebar-menu-item"
+                type="button"
+                :class="{ active: activeMenu === menu.menuKey }"
+                :style="{ paddingLeft: `${14 + menu.depth * 18}px` }"
+                :title="menu.permissionName"
+                @click="activateMenu(menu.menuKey)"
+            >
+                <span class="menu-svg" v-html="resolveMenuIcon(menu.icon)"></span>
+                <span v-if="!isCollapsed" class="menu-label">{{ menu.permissionName }}</span>
+            </button>
+        </nav>
+
+        <div v-else class="empty-shell sidebar-empty">
+            <strong>暂无可访问菜单</strong>
+            <p>当前账号没有可展示的菜单权限。</p>
+        </div>
+    </aside>
+
+    <div class="admin-main">
+        <header class="admin-header">
+            <div class="admin-header-left">
+                <button
+                    class="admin-collapse"
+                    type="button"
+                    :title="isCollapsed ? '展开菜单' : '收起菜单'"
+                    @click="toggleSidebar"
+                >
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <strong class="admin-header-title">{{ currentSection.headerTitle }}</strong>
+            </div>
+
+            <div class="admin-header-right">
+                <div class="header-user">
+                    <span class="header-user-icon" v-html="pageIcons.user"></span>
+                    <span>{{ currentUser.userName || '未知用户' }}</span>
+                </div>
+                <span class="header-role">{{ currentRoleText }}</span>
+                <button class="header-logout" type="button" title="退出登录" @click="logout">
+                    <span v-html="pageIcons.logout"></span>
+                </button>
+            </div>
+        </header>
+
+        <main class="admin-content">
+            <section class="page-intro">
+                <div>
+                    <h1>{{ currentSection.title }}</h1>
+                    <p>{{ currentSection.description }}</p>
+                </div>
+                <button class="page-action" type="button" @click="handlePrimaryAction">
+                    <span v-html="pageIcons.refresh"></span>
+                    <span>{{ currentSection.actionText }}</span>
+                </button>
+            </section>
+
+            <section v-if="!activeMenu" class="page-block">
+                <section class="table-panel empty-shell">
+                    <strong>暂无可展示页面</strong>
+                    <p>当前账号没有可访问的菜单，请联系管理员分配权限。</p>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'dashboard'" class="dashboard-home">
+                <section class="metric-strip">
+                    <article class="metric-item" v-for="card in homeStats" :key="card.label">
+                        <span>{{ card.label }}</span>
+                        <strong>{{ card.value }}</strong>
+                        <p>{{ card.tip }}</p>
+                    </article>
+                </section>
+
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>最近登录日志</strong>
+                        <span>首页数据同样受当前账号权限控制，只显示当前账号有权访问的内容。</span>
+                    </div>
+
+                    <div class="table-scroll">
+                        <table class="system-table">
+                            <thead>
+                            <tr>
+                                <th>用户名</th>
+                                <th>状态</th>
+                                <th>IP</th>
+                                <th>说明</th>
+                                <th>登录时间</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="homeRecentLogs.length === 0">
+                                <td colspan="5" class="empty-cell">暂无登录日志</td>
+                            </tr>
+                            <tr v-for="log in homeRecentLogs" :key="log.id">
+                                <td>{{ log.userName }}</td>
+                                <td>
+                                    <span class="status-badge" :class="log.loginStatus === 'SUCCESS' ? 'success' : 'fail'">
+                                        {{ log.loginStatus === 'SUCCESS' ? '成功' : '失败' }}
+                                    </span>
+                                </td>
+                                <td>{{ log.loginIp || '--' }}</td>
+                                <td>{{ log.loginMessage || '--' }}</td>
+                                <td>{{ formatDateTime(log.loginTime) }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'profile'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>个人信息</strong>
+                        <span>查看当前登录用户的资料、角色、权限编码以及后端动态返回的菜单树。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <button class="toolbar-button primary" type="button" @click="openProfileModal">编辑个人资料</button>
+                            <button class="toolbar-button" type="button" @click="openPasswordModal">修改密码</button>
+                        </div>
+                    </div>
+
+                    <div class="detail-grid">
+                        <article class="detail-item">
+                            <span>用户 ID</span>
+                            <strong>{{ currentUser.id || '--' }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>用户名</span>
+                            <strong>{{ currentUser.userName || '--' }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>角色</span>
+                            <strong>{{ currentRoleText }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>是否超级管理员</span>
+                            <strong>{{ currentUser.superAdmin ? '是' : '否' }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>手机号</span>
+                            <strong>{{ currentUser.userPhonenum || '未设置' }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>邮箱</span>
+                            <strong>{{ currentUser.userEmail || '未设置' }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>创建时间</span>
+                            <strong>{{ formatDateTime(currentUser.createAt) }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>最近登录时间</span>
+                            <strong>{{ formatDateTime(currentUser.lastLoginTime) }}</strong>
+                        </article>
+                    </div>
+
+                    <div class="panel-subsection">
+                        <strong>权限编码</strong>
+                        <div class="badge-wrap">
+                            <span v-for="code in currentUser.permissionCodes || []" :key="code" class="pill-badge">{{ code }}</span>
+                            <span v-if="(currentUser.permissionCodes || []).length === 0" class="empty-text">暂无权限编码</span>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'user'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>用户管理</strong>
+                        <span>支持用户分页查询、创建、编辑、删除，并可为用户分配一个或多个角色。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input v-model.trim="userQuery.userName" class="toolbar-input" type="text" placeholder="输入用户名搜索">
+                            <button class="toolbar-button primary" type="button" @click="searchUsers">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetUserSearch">重置</button>
+                        </div>
+                        <button v-if="can('sys:user:create')" class="toolbar-button primary" type="button" @click="openCreateUserModal">新增用户</button>
+                    </div>
+
+                    <div v-if="userLoading" class="state-block">
+                        <strong>正在加载用户数据</strong>
+                        <p>请稍候，系统正在读取用户列表。</p>
+                    </div>
+
+                    <div v-else-if="userError" class="state-block state-danger">
+                        <strong>读取用户数据失败</strong>
+                        <p>{{ userError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>角色</th>
+                                <th>手机号</th>
+                                <th>邮箱</th>
+                                <th>超级管理员</th>
+                                <th>创建时间</th>
+                                <th>最近登录</th>
+                                <th v-if="can('sys:user:update') || can('sys:user:delete')">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="userPage.records.length === 0">
+                                <td :colspan="can('sys:user:update') || can('sys:user:delete') ? 9 : 8" class="empty-cell">暂无用户数据</td>
+                            </tr>
+                            <tr v-for="user in userPage.records" :key="user.id">
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.userName }}</td>
+                                <td>{{ formatRoleNames(user.roles) }}</td>
+                                <td>{{ user.userPhonenum || '--' }}</td>
+                                <td>{{ user.userEmail || '--' }}</td>
+                                <td>{{ user.superAdmin ? '是' : '否' }}</td>
+                                <td>{{ formatDateTime(user.createAt) }}</td>
+                                <td>{{ formatDateTime(user.lastLoginTime) }}</td>
+                                <td v-if="can('sys:user:update') || can('sys:user:delete')" class="action-cell">
+                                    <button v-if="can('sys:user:update')" class="text-button" type="button" @click="openEditUserModal(user)">编辑</button>
+                                    <button v-if="can('sys:user:delete')" class="text-button danger" type="button" @click="deleteUser(user)">删除</button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-row">
+                        <span>共 {{ userPage.total }} 条，第 {{ userPage.page }} / {{ userPage.totalPages || 1 }} 页</span>
+                        <div class="pagination-actions">
+                            <button class="toolbar-button" type="button" :disabled="userPage.page <= 1" @click="changeUserPage(userPage.page - 1)">上一页</button>
+                            <button class="toolbar-button" type="button" :disabled="userPage.page >= (userPage.totalPages || 1)" @click="changeUserPage(userPage.page + 1)">下一页</button>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'role'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>角色管理</strong>
+                        <span>支持角色增删改查，并通过树状复选框为角色分配菜单权限和接口权限。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input v-model.trim="roleQuery.roleName" class="toolbar-input" type="text" placeholder="输入角色名称或编码搜索">
+                            <button class="toolbar-button primary" type="button" @click="loadRoles">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetRoleSearch">重置</button>
+                        </div>
+                        <button v-if="can('sys:role:create')" class="toolbar-button primary" type="button" @click="openCreateRoleModal">新增角色</button>
+                    </div>
+
+                    <div v-if="roleLoading" class="state-block">
+                        <strong>正在加载角色数据</strong>
+                        <p>请稍候，系统正在读取角色列表。</p>
+                    </div>
+
+                    <div v-else-if="roleError" class="state-block state-danger">
+                        <strong>读取角色数据失败</strong>
+                        <p>{{ roleError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>角色编码</th>
+                                <th>角色名称</th>
+                                <th>是否启用</th>
+                                <th>权限数量</th>
+                                <th>描述</th>
+                                <th v-if="can('sys:role:update') || can('sys:role:delete')">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="roleList.length === 0">
+                                <td :colspan="can('sys:role:update') || can('sys:role:delete') ? 7 : 6" class="empty-cell">暂无角色数据</td>
+                            </tr>
+                            <tr v-for="role in roleList" :key="role.id">
+                                <td>{{ role.id }}</td>
+                                <td>{{ role.roleCode }}</td>
+                                <td>{{ role.roleName }}</td>
+                                <td>{{ role.enabled ? '是' : '否' }}</td>
+                                <td>{{ role.permissionIds.length }}</td>
+                                <td>{{ role.roleDescription || '--' }}</td>
+                                <td v-if="can('sys:role:update') || can('sys:role:delete')" class="action-cell">
+                                    <button v-if="can('sys:role:update')" class="text-button" type="button" @click="openEditRoleModal(role)">编辑</button>
+                                    <button v-if="can('sys:role:delete')" class="text-button danger" type="button" @click="deleteRole(role)">删除</button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'permission'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>权限管理</strong>
+                        <span>权限分为菜单权限和接口权限，菜单决定左侧导航显示，接口决定后端访问控制。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <button class="toolbar-button primary" type="button" @click="loadPermissions">刷新权限树</button>
+                        </div>
+                        <button v-if="can('sys:permission:create')" class="toolbar-button primary" type="button" @click="openCreatePermissionModal">新增权限</button>
+                    </div>
+
+                    <div v-if="permissionLoading" class="state-block">
+                        <strong>正在加载权限数据</strong>
+                        <p>请稍候，系统正在读取权限树。</p>
+                    </div>
+
+                    <div v-else-if="permissionError" class="state-block state-danger">
+                        <strong>读取权限数据失败</strong>
+                        <p>{{ permissionError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table">
+                            <thead>
+                            <tr>
+                                <th>权限名称</th>
+                                <th>权限编码</th>
+                                <th>类型</th>
+                                <th>菜单标识</th>
+                                <th>路由 / 接口</th>
+                                <th>是否显示</th>
+                                <th v-if="can('sys:permission:update') || can('sys:permission:delete')">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="flattenedPermissionTree.length === 0">
+                                <td :colspan="can('sys:permission:update') || can('sys:permission:delete') ? 7 : 6" class="empty-cell">暂无权限数据</td>
+                            </tr>
+                            <tr v-for="permission in flattenedPermissionTree" :key="permission.id">
+                                <td>
+                                    <div class="tree-label" :style="{ paddingLeft: `${permission.depth * 20}px` }">
+                                        <strong>{{ permission.permissionName }}</strong>
+                                    </div>
+                                </td>
+                                <td>{{ permission.permissionCode }}</td>
+                                <td>{{ permission.permissionType }}</td>
+                                <td>{{ permission.menuKey || '--' }}</td>
+                                <td>{{ permission.permissionType === 'MENU' ? (permission.routePath || '--') : `${permission.httpMethod || '--'} ${permission.apiPattern || ''}` }}</td>
+                                <td>{{ permission.visible ? '是' : '否' }}</td>
+                                <td v-if="can('sys:permission:update') || can('sys:permission:delete')" class="action-cell">
+                                    <button v-if="can('sys:permission:update')" class="text-button" type="button" @click="openEditPermissionModal(permission)">编辑</button>
+                                    <button v-if="can('sys:permission:delete')" class="text-button danger" type="button" @click="deletePermission(permission)">删除</button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'log'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>登录日志</strong>
+                        <span>记录登录成功和失败信息，支持分页和按用户名筛选。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input v-model.trim="logQuery.userName" class="toolbar-input" type="text" placeholder="输入用户名搜索">
+                            <button class="toolbar-button primary" type="button" @click="searchLogs">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetLogSearch">重置</button>
+                        </div>
+                    </div>
+
+                    <div v-if="logLoading" class="state-block">
+                        <strong>正在加载日志数据</strong>
+                        <p>请稍候，系统正在读取登录日志。</p>
+                    </div>
+
+                    <div v-else-if="logError" class="state-block state-danger">
+                        <strong>读取日志数据失败</strong>
+                        <p>{{ logError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>状态</th>
+                                <th>IP</th>
+                                <th>说明</th>
+                                <th>登录时间</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="logPage.records.length === 0">
+                                <td colspan="6" class="empty-cell">暂无登录日志</td>
+                            </tr>
+                            <tr v-for="log in logPage.records" :key="log.id">
+                                <td>{{ log.id }}</td>
+                                <td>{{ log.userName }}</td>
+                                <td>
+                                    <span class="status-badge" :class="log.loginStatus === 'SUCCESS' ? 'success' : 'fail'">
+                                        {{ log.loginStatus === 'SUCCESS' ? '成功' : '失败' }}
+                                    </span>
+                                </td>
+                                <td>{{ log.loginIp || '--' }}</td>
+                                <td>{{ log.loginMessage || '--' }}</td>
+                                <td>{{ formatDateTime(log.loginTime) }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-row">
+                        <span>共 {{ logPage.total }} 条，第 {{ logPage.page }} / {{ logPage.totalPages || 1 }} 页</span>
+                        <div class="pagination-actions">
+                            <button class="toolbar-button" type="button" :disabled="logPage.page <= 1" @click="changeLogPage(logPage.page - 1)">上一页</button>
+                            <button class="toolbar-button" type="button" :disabled="logPage.page >= (logPage.totalPages || 1)" @click="changeLogPage(logPage.page + 1)">下一页</button>
+                        </div>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <div v-if="showProfileModal" class="modal-mask" @click.self="closeProfileModal">
+        <section class="modal-card">
+            <div class="modal-head">
+                <strong>编辑个人资料</strong>
+                <button class="modal-close" type="button" @click="closeProfileModal">×</button>
+            </div>
+            <div class="form-grid">
+                <label class="form-item">
+                    <span>用户名</span>
+                    <input v-model.trim="profileForm.userName" class="toolbar-input" type="text" placeholder="请输入用户名">
+                </label>
+                <label class="form-item">
+                    <span>手机号</span>
+                    <input v-model.trim="profileForm.userPhonenum" class="toolbar-input" type="text" placeholder="请输入手机号">
+                </label>
+                <label class="form-item">
+                    <span>邮箱</span>
+                    <input v-model.trim="profileForm.userEmail" class="toolbar-input" type="text" placeholder="请输入邮箱">
+                </label>
+                <label class="form-item form-item-wide">
+                    <span>头像地址</span>
+                    <input v-model.trim="profileForm.userHeader" class="toolbar-input" type="text" placeholder="请输入头像地址">
+                </label>
+            </div>
+            <p v-if="profileFormError" class="form-error">{{ profileFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitProfileForm" :disabled="profileSubmitting">
+                    {{ profileSubmitting ? '提交中...' : '保存' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closeProfileModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showPasswordModal" class="modal-mask" @click.self="closePasswordModal">
+        <section class="modal-card">
+            <div class="modal-head">
+                <strong>修改密码</strong>
+                <button class="modal-close" type="button" @click="closePasswordModal">×</button>
+            </div>
+            <div class="form-grid">
+                <label class="form-item form-item-wide">
+                    <span>旧密码</span>
+                    <input v-model.trim="passwordForm.oldPassword" class="toolbar-input" type="password" placeholder="请输入旧密码">
+                </label>
+                <label class="form-item">
+                    <span>新密码</span>
+                    <input v-model.trim="passwordForm.newPassword" class="toolbar-input" type="password" placeholder="请输入新密码">
+                </label>
+                <label class="form-item">
+                    <span>确认新密码</span>
+                    <input v-model.trim="passwordForm.confirmPassword" class="toolbar-input" type="password" placeholder="请再次输入新密码">
+                </label>
+            </div>
+            <p v-if="passwordFormError" class="form-error">{{ passwordFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitPasswordForm" :disabled="passwordSubmitting">
+                    {{ passwordSubmitting ? '提交中...' : '保存' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closePasswordModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showUserModal" class="modal-mask" @click.self="closeUserModal">
+        <section class="modal-card modal-card-lg">
+            <div class="modal-head">
+                <strong>{{ userForm.id ? '编辑用户' : '新增用户' }}</strong>
+                <button class="modal-close" type="button" @click="closeUserModal">×</button>
+            </div>
+            <div class="form-grid">
+                <label class="form-item">
+                    <span>用户名</span>
+                    <input v-model.trim="userForm.userName" class="toolbar-input" type="text" placeholder="请输入用户名">
+                </label>
+                <label class="form-item">
+                    <span>密码</span>
+                    <input v-model.trim="userForm.userPwd" class="toolbar-input" type="password" :placeholder="userForm.id ? '留空表示不修改密码' : '请输入密码'">
+                </label>
+                <label class="form-item">
+                    <span>手机号</span>
+                    <input v-model.trim="userForm.userPhonenum" class="toolbar-input" type="text" placeholder="请输入手机号">
+                </label>
+                <label class="form-item">
+                    <span>邮箱</span>
+                    <input v-model.trim="userForm.userEmail" class="toolbar-input" type="text" placeholder="请输入邮箱">
+                </label>
+                <label class="form-item form-item-wide">
+                    <span>头像地址</span>
+                    <input v-model.trim="userForm.userHeader" class="toolbar-input" type="text" placeholder="请输入头像地址">
+                </label>
+            </div>
+
+            <div class="panel-subsection">
+                <strong>分配角色</strong>
+                <div class="checkbox-grid">
+                    <label v-for="role in roleOptions" :key="role.id" class="checkbox-item">
+                        <input v-model="userForm.roleIds" type="checkbox" :value="role.id">
+                        <span>{{ role.roleName }} <small>{{ role.roleCode }}</small></span>
+                    </label>
+                </div>
+            </div>
+
+            <p v-if="userFormError" class="form-error">{{ userFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitUserForm" :disabled="userSubmitting">
+                    {{ userSubmitting ? '提交中...' : '保存' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closeUserModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showRoleModal" class="modal-mask" @click.self="closeRoleModal">
+        <section class="modal-card modal-card-xl">
+            <div class="modal-head">
+                <strong>{{ roleForm.id ? '编辑角色' : '新增角色' }}</strong>
+                <button class="modal-close" type="button" @click="closeRoleModal">×</button>
+            </div>
+            <div class="form-grid">
+                <label class="form-item">
+                    <span>角色编码</span>
+                    <input v-model.trim="roleForm.roleCode" class="toolbar-input" type="text" placeholder="例如：ANALYST">
+                </label>
+                <label class="form-item">
+                    <span>角色名称</span>
+                    <input v-model.trim="roleForm.roleName" class="toolbar-input" type="text" placeholder="例如：分析员">
+                </label>
+                <label class="form-item">
+                    <span>排序号</span>
+                    <input v-model.number="roleForm.sortNum" class="toolbar-input" type="number" min="0">
+                </label>
+                <label class="form-item">
+                    <span>是否启用</span>
+                    <select v-model="roleForm.enabled" class="toolbar-input">
+                        <option :value="true">启用</option>
+                        <option :value="false">停用</option>
+                    </select>
+                </label>
+                <label class="form-item form-item-wide">
+                    <span>描述</span>
+                    <textarea v-model.trim="roleForm.roleDescription" class="toolbar-textarea" rows="3" placeholder="请输入角色描述"></textarea>
+                </label>
+            </div>
+
+            <div class="panel-subsection">
+                <div class="panel-actions">
+                    <strong>权限树</strong>
+                    <div class="toolbar-inline">
+                        <button class="toolbar-button" type="button" @click="selectAllPermissions">全选</button>
+                        <button class="toolbar-button" type="button" @click="clearAllPermissions">取消全选</button>
+                    </div>
+                </div>
+                <div class="tree-list">
+                    <label v-for="node in flattenedPermissionTree" :key="`role-${node.id}`" class="tree-node">
+                        <input v-model="roleForm.permissionIds" type="checkbox" :value="node.id">
+                        <span class="tree-label" :style="{ paddingLeft: `${node.depth * 20}px` }">
+                            <strong>{{ node.permissionName }}</strong>
+                            <small>{{ node.permissionCode }} · {{ node.permissionType }}</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <p v-if="roleFormError" class="form-error">{{ roleFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitRoleForm" :disabled="roleSubmitting">
+                    {{ roleSubmitting ? '提交中...' : '保存' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closeRoleModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showPermissionModal" class="modal-mask" @click.self="closePermissionModal">
+        <section class="modal-card modal-card-lg">
+            <div class="modal-head">
+                <strong>{{ permissionForm.id ? '编辑权限' : '新增权限' }}</strong>
+                <button class="modal-close" type="button" @click="closePermissionModal">×</button>
+            </div>
+            <div class="form-grid">
+                <label class="form-item">
+                    <span>权限编码</span>
+                    <input v-model.trim="permissionForm.permissionCode" class="toolbar-input" type="text" placeholder="例如：sys:user:view">
+                </label>
+                <label class="form-item">
+                    <span>权限名称</span>
+                    <input v-model.trim="permissionForm.permissionName" class="toolbar-input" type="text" placeholder="例如：查看用户">
+                </label>
+                <label class="form-item">
+                    <span>权限类型</span>
+                    <select v-model="permissionForm.permissionType" class="toolbar-input">
+                        <option value="MENU">菜单权限</option>
+                        <option value="API">接口权限</option>
+                    </select>
+                </label>
+                <label class="form-item">
+                    <span>父级权限</span>
+                    <select v-model="permissionForm.parentId" class="toolbar-input">
+                        <option :value="0">顶级</option>
+                        <option v-for="option in parentPermissionOptions" :key="`parent-${option.id}`" :value="option.id">
+                            {{ formatPermissionOption(option) }}
+                        </option>
+                    </select>
+                </label>
+                <label class="form-item">
+                    <span>排序号</span>
+                    <input v-model.number="permissionForm.sortNum" class="toolbar-input" type="number" min="0">
+                </label>
+                <label class="form-item">
+                    <span>是否显示</span>
+                    <select v-model="permissionForm.visible" class="toolbar-input">
+                        <option :value="true">显示</option>
+                        <option :value="false">隐藏</option>
+                    </select>
+                </label>
+                <label class="form-item" v-if="permissionForm.permissionType === 'MENU'">
+                    <span>菜单标识</span>
+                    <input v-model.trim="permissionForm.menuKey" class="toolbar-input" type="text" placeholder="例如：dashboard">
+                </label>
+                <label class="form-item" v-if="permissionForm.permissionType === 'MENU'">
+                    <span>路由路径</span>
+                    <input v-model.trim="permissionForm.routePath" class="toolbar-input" type="text" placeholder="例如：/dashboard">
+                </label>
+                <label class="form-item" v-if="permissionForm.permissionType === 'MENU'">
+                    <span>组件路径</span>
+                    <input v-model.trim="permissionForm.componentPath" class="toolbar-input" type="text" placeholder="例如：dashboard">
+                </label>
+                <label class="form-item" v-if="permissionForm.permissionType === 'MENU'">
+                    <span>图标</span>
+                    <input v-model.trim="permissionForm.icon" class="toolbar-input" type="text" placeholder="例如：dashboard">
+                </label>
+                <label class="form-item" v-if="permissionForm.permissionType === 'API'">
+                    <span>请求方法</span>
+                    <select v-model="permissionForm.httpMethod" class="toolbar-input">
+                        <option value="">任意</option>
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                </label>
+                <label class="form-item form-item-wide" v-if="permissionForm.permissionType === 'API'">
+                    <span>接口路径</span>
+                    <input v-model.trim="permissionForm.apiPattern" class="toolbar-input" type="text" placeholder="例如：/api/users/**">
+                </label>
+                <label class="form-item form-item-wide">
+                    <span>描述</span>
+                    <textarea v-model.trim="permissionForm.description" class="toolbar-textarea" rows="3" placeholder="请输入权限描述"></textarea>
+                </label>
+            </div>
+            <p v-if="permissionFormError" class="form-error">{{ permissionFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitPermissionForm" :disabled="permissionSubmitting">
+                    {{ permissionSubmitting ? '提交中...' : '保存' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closePermissionModal">取消</button>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script src="/assets/vendor/vue.global.prod.js"></script>
+<script src="/assets/js/index.js"></script>
+</body>
+</html>
