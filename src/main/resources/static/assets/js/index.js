@@ -1,0 +1,1103 @@
+const { createApp, computed, onMounted, reactive, ref } = Vue;
+
+const TOKEN_KEY = "platform_token";
+const USER_KEY = "platform_user";
+
+const menuIcons = {
+    dashboard: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M4 5H10V11H4Z" />
+            <path d="M14 5H20V9H14Z" />
+            <path d="M14 13H20V19H14Z" />
+            <path d="M4 15H10V19H4Z" />
+        </svg>
+    `,
+    profile: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20C4 16.686 7.582 14 12 14C16.418 14 20 16.686 20 20" />
+        </svg>
+    `,
+    user: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M4 19C4 16.239 6.686 14 10 14" />
+            <path d="M14 14C17.314 14 20 16.239 20 19" />
+            <circle cx="10" cy="8" r="3" />
+            <circle cx="17" cy="9" r="2" />
+        </svg>
+    `,
+    role: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M12 3L21 8L12 13L3 8L12 3Z" />
+            <path d="M7 10.5V15.5C7 17.985 9.239 20 12 20C14.761 20 17 17.985 17 15.5V10.5" />
+        </svg>
+    `,
+    permission: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M12 3L19 6V11C19 15.418 16.119 19.223 12 20.5C7.881 19.223 5 15.418 5 11V6L12 3Z" />
+            <path d="M9.5 12L11.3 13.8L14.8 10.3" />
+        </svg>
+    `,
+    log: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M7 4H17V20H7Z" />
+            <path d="M9.5 8H14.5" />
+            <path d="M9.5 12H14.5" />
+            <path d="M9.5 16H13" />
+        </svg>
+    `,
+    default: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <circle cx="12" cy="12" r="8" />
+            <path d="M12 8V12L15 15" />
+        </svg>
+    `
+};
+
+const pageIcons = {
+    user: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20C4 16.686 7.582 14 12 14C16.418 14 20 16.686 20 20" />
+        </svg>
+    `,
+    logout: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M10 7V5H5V19H10V17" />
+            <path d="M14 8L19 12L14 16" />
+            <path d="M9 12H19" />
+        </svg>
+    `,
+    refresh: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M20 11A8 8 0 1 0 17.66 17.66" />
+            <path d="M20 4V11H13" />
+        </svg>
+    `
+};
+
+const defaultPageData = () => ({
+    records: [],
+    total: 0,
+    page: 1,
+    size: 10,
+    totalPages: 0
+});
+
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+
+const clearLoginState = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+};
+
+const redirectToLogin = () => {
+    clearLoginState();
+    window.location.replace("/login.html");
+};
+
+const buildQuery = (params) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+            searchParams.set(key, value);
+        }
+    });
+    return searchParams.toString();
+};
+
+const flattenMenuTree = (nodes, depth = 0, result = []) => {
+    (nodes || []).forEach((node) => {
+        result.push({ ...node, depth });
+        if (node.children && node.children.length > 0) {
+            flattenMenuTree(node.children, depth + 1, result);
+        }
+    });
+    return result;
+};
+
+const flattenPermissionTree = (nodes, depth = 0, result = []) => {
+    (nodes || []).forEach((node) => {
+        result.push({ ...node, depth });
+        if (node.children && node.children.length > 0) {
+            flattenPermissionTree(node.children, depth + 1, result);
+        }
+    });
+    return result;
+};
+
+createApp({
+    setup() {
+        if (!getToken()) {
+            redirectToLogin();
+        }
+
+        const currentUser = ref(JSON.parse(localStorage.getItem(USER_KEY) || "{}"));
+        const isCollapsed = ref(false);
+        const activeMenu = ref(null);
+
+        const homeUserTotal = ref(null);
+        const homeLogTotal = ref(null);
+        const homeRecentLogs = ref([]);
+
+        const userLoading = ref(false);
+        const userError = ref("");
+        const userPage = ref(defaultPageData());
+        const userQuery = reactive({
+            userName: "",
+            page: 1,
+            size: 10
+        });
+        const showUserModal = ref(false);
+        const userSubmitting = ref(false);
+        const userFormError = ref("");
+        const userForm = reactive({
+            id: null,
+            userName: "",
+            userPwd: "",
+            userHeader: "",
+            userPhonenum: "",
+            userEmail: "",
+            roleIds: []
+        });
+
+        const roleLoading = ref(false);
+        const roleError = ref("");
+        const roleList = ref([]);
+        const roleOptions = ref([]);
+        const roleQuery = reactive({
+            roleName: ""
+        });
+        const showRoleModal = ref(false);
+        const roleSubmitting = ref(false);
+        const roleFormError = ref("");
+        const roleForm = reactive({
+            id: null,
+            roleCode: "",
+            roleName: "",
+            roleDescription: "",
+            sortNum: 0,
+            enabled: true,
+            permissionIds: []
+        });
+
+        const permissionLoading = ref(false);
+        const permissionError = ref("");
+        const permissionTree = ref([]);
+        const showPermissionModal = ref(false);
+        const permissionSubmitting = ref(false);
+        const permissionFormError = ref("");
+        const permissionForm = reactive({
+            id: null,
+            permissionCode: "",
+            permissionName: "",
+            permissionType: "MENU",
+            parentId: 0,
+            menuKey: "",
+            routePath: "",
+            componentPath: "",
+            icon: "",
+            apiPattern: "",
+            httpMethod: "",
+            sortNum: 0,
+            visible: true,
+            description: ""
+        });
+
+        const profileSubmitting = ref(false);
+        const profileFormError = ref("");
+        const showProfileModal = ref(false);
+        const profileForm = reactive({
+            userName: "",
+            userHeader: "",
+            userPhonenum: "",
+            userEmail: ""
+        });
+
+        const passwordSubmitting = ref(false);
+        const passwordFormError = ref("");
+        const showPasswordModal = ref(false);
+        const passwordForm = reactive({
+            oldPassword: "",
+            newPassword: "",
+            confirmPassword: ""
+        });
+
+        const logLoading = ref(false);
+        const logError = ref("");
+        const logPage = ref(defaultPageData());
+        const logQuery = reactive({
+            userName: "",
+            page: 1,
+            size: 10
+        });
+
+        const sectionMap = {
+            dashboard: {
+                title: "首页概览",
+                headerTitle: "首页概览",
+                description: "登录后首页会根据当前账号权限动态加载统计信息与登录日志概览。",
+                actionText: "刷新首页"
+            },
+            profile: {
+                title: "个人信息",
+                headerTitle: "个人信息",
+                description: "查看并维护当前登录用户资料，同时支持单独修改密码。",
+                actionText: "刷新资料"
+            },
+            user: {
+                title: "用户管理",
+                headerTitle: "用户管理",
+                description: "管理系统用户并分配一个或多个角色。",
+                actionText: "刷新用户"
+            },
+            role: {
+                title: "角色管理",
+                headerTitle: "角色管理",
+                description: "通过权限树为角色分配菜单权限和接口权限。",
+                actionText: "刷新角色"
+            },
+            permission: {
+                title: "权限管理",
+                headerTitle: "权限管理",
+                description: "统一维护菜单权限和接口权限，驱动动态菜单与接口鉴权。",
+                actionText: "刷新权限"
+            },
+            log: {
+                title: "登录日志",
+                headerTitle: "登录日志",
+                description: "查看登录成功和失败日志，支持按用户名筛选。",
+                actionText: "刷新日志"
+            }
+        };
+
+        const flatMenus = computed(() => flattenMenuTree(currentUser.value.menuTree || []));
+        const flattenedPermissionTree = computed(() => flattenPermissionTree(permissionTree.value || []));
+        const parentPermissionOptions = computed(() =>
+            flattenedPermissionTree.value.filter((item) => item.id !== permissionForm.id)
+        );
+
+        const currentSection = computed(() => sectionMap[activeMenu.value] || {
+            title: "控制台",
+            headerTitle: "控制台",
+            description: "当前菜单没有匹配到页面定义。",
+            actionText: "刷新"
+        });
+
+        const currentRoleText = computed(() => {
+            if (currentUser.value.superAdmin) {
+                return "超级管理员";
+            }
+            const roles = currentUser.value.roles || [];
+            return roles.length > 0 ? roles.map((role) => role.roleName).join("、") : "无角色";
+        });
+
+        const homeStats = computed(() => [
+            {
+                label: "可见菜单数",
+                value: flatMenus.value.length,
+                tip: "根据后端返回的菜单权限树动态计算。"
+            },
+            {
+                label: "用户总数",
+                value: homeUserTotal.value === null ? "--" : homeUserTotal.value,
+                tip: can("sys:user:view") ? "来自用户分页接口。" : "当前账号没有查看用户统计的权限。"
+            },
+            {
+                label: "登录日志数",
+                value: homeLogTotal.value === null ? "--" : homeLogTotal.value,
+                tip: can("sys:log:view") ? "来自登录日志分页接口。" : "当前账号没有查看日志的权限。"
+            },
+            {
+                label: "权限编码数",
+                value: (currentUser.value.permissionCodes || []).length,
+                tip: "JWT 解析后由后端装载到当前安全上下文。"
+            }
+        ]);
+
+        function can(permissionCode) {
+            if (currentUser.value.superAdmin) {
+                return true;
+            }
+            return (currentUser.value.permissionCodes || []).includes(permissionCode);
+        }
+
+        function resolveMenuIcon(iconName) {
+            return menuIcons[iconName] || menuIcons.default;
+        }
+
+        function formatDateTime(value) {
+            if (!value) {
+                return "未记录";
+            }
+            return String(value).replace("T", " ");
+        }
+
+        function formatRoleNames(roles) {
+            if (!roles || roles.length === 0) {
+                return "未分配";
+            }
+            return roles.map((role) => role.roleName).join("、");
+        }
+
+        function formatPermissionOption(option) {
+            return `${"\u3000".repeat(option.depth)}${option.permissionName}`;
+        }
+
+        function toggleSidebar() {
+            isCollapsed.value = !isCollapsed.value;
+        }
+
+        function handleUnauthorized() {
+            redirectToLogin();
+        }
+
+        async function parseResult(response) {
+            const text = await response.text();
+            const result = text ? JSON.parse(text) : null;
+            if (response.status === 401 || result?.code === 401) {
+                handleUnauthorized();
+                return null;
+            }
+            return result;
+        }
+
+        async function authorizedFetch(url, options = {}) {
+            const headers = new Headers(options.headers || {});
+            headers.set("Authorization", `Bearer ${getToken() || ""}`);
+            return fetch(url, {
+                ...options,
+                headers
+            });
+        }
+
+        async function apiRequest(url, options = {}) {
+            const response = await authorizedFetch(url, options);
+            const result = await parseResult(response);
+            if (!result) {
+                return { response, result: null };
+            }
+            if (!response.ok || (result.code !== 200 && result.code !== 201)) {
+                throw new Error(result.message || "请求失败");
+            }
+            return { response, result };
+        }
+
+        function ensureActiveMenu() {
+            const firstMenu = flatMenus.value[0];
+            if (!firstMenu) {
+                activeMenu.value = null;
+                return;
+            }
+            if (!flatMenus.value.some((menu) => menu.menuKey === activeMenu.value)) {
+                activeMenu.value = firstMenu.menuKey;
+            }
+        }
+
+        async function loadCurrentUser() {
+            const { result } = await apiRequest("/api/user/me");
+            currentUser.value = result.data || {};
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser.value));
+            ensureActiveMenu();
+        }
+
+        async function refreshContext(reloadSection = true) {
+            await loadCurrentUser();
+            if (reloadSection && activeMenu.value) {
+                await loadSectionData(activeMenu.value);
+            }
+        }
+
+        async function loadHomeData() {
+            const tasks = [];
+            if (can("sys:user:view")) {
+                tasks.push(apiRequest(`/api/users?${buildQuery({ page: 1, size: 1 })}`).then(({ result }) => {
+                    homeUserTotal.value = result.data.total || 0;
+                }));
+            } else {
+                homeUserTotal.value = null;
+            }
+
+            if (can("sys:log:view")) {
+                tasks.push(apiRequest(`/api/login-logs?${buildQuery({ page: 1, size: 5 })}`).then(({ result }) => {
+                    homeLogTotal.value = result.data.total || 0;
+                    homeRecentLogs.value = result.data.records || [];
+                }));
+            } else {
+                homeLogTotal.value = null;
+                homeRecentLogs.value = [];
+            }
+            await Promise.all(tasks);
+        }
+
+        async function loadUsers() {
+            userLoading.value = true;
+            userError.value = "";
+            try {
+                const { result } = await apiRequest(`/api/users?${buildQuery(userQuery)}`);
+                userPage.value = result.data || defaultPageData();
+            } catch (error) {
+                userError.value = error.message || "读取用户数据失败";
+            } finally {
+                userLoading.value = false;
+            }
+        }
+
+        async function loadRoleOptions() {
+            if (!can("sys:role:view")) {
+                roleOptions.value = [];
+                return;
+            }
+            const { result } = await apiRequest("/api/roles/options");
+            roleOptions.value = result.data || [];
+        }
+
+        async function loadRoles() {
+            roleLoading.value = true;
+            roleError.value = "";
+            try {
+                const query = buildQuery(roleQuery);
+                const { result } = await apiRequest(query ? `/api/roles?${query}` : "/api/roles");
+                roleList.value = result.data || [];
+                await loadRoleOptions();
+            } catch (error) {
+                roleError.value = error.message || "读取角色数据失败";
+            } finally {
+                roleLoading.value = false;
+            }
+        }
+
+        async function loadPermissions() {
+            permissionLoading.value = true;
+            permissionError.value = "";
+            try {
+                const { result } = await apiRequest("/api/permissions/tree");
+                permissionTree.value = result.data || [];
+            } catch (error) {
+                permissionError.value = error.message || "读取权限数据失败";
+            } finally {
+                permissionLoading.value = false;
+            }
+        }
+
+        async function loadLogs() {
+            logLoading.value = true;
+            logError.value = "";
+            try {
+                const { result } = await apiRequest(`/api/login-logs?${buildQuery(logQuery)}`);
+                logPage.value = result.data || defaultPageData();
+            } catch (error) {
+                logError.value = error.message || "读取日志数据失败";
+            } finally {
+                logLoading.value = false;
+            }
+        }
+
+        async function loadSectionData(menuKey) {
+            if (!menuKey) {
+                return;
+            }
+            if (menuKey === "dashboard") {
+                await loadHomeData();
+                return;
+            }
+            if (menuKey === "profile") {
+                await loadCurrentUser();
+                return;
+            }
+            if (menuKey === "user") {
+                await Promise.all([loadUsers(), loadRoleOptions()]);
+                return;
+            }
+            if (menuKey === "role") {
+                await Promise.all([loadRoles(), loadPermissions()]);
+                return;
+            }
+            if (menuKey === "permission") {
+                await loadPermissions();
+                return;
+            }
+            if (menuKey === "log") {
+                await loadLogs();
+            }
+        }
+
+        async function activateMenu(menuKey) {
+            activeMenu.value = menuKey;
+            await loadSectionData(menuKey);
+        }
+
+        async function handlePrimaryAction() {
+            if (activeMenu.value) {
+                await loadSectionData(activeMenu.value);
+            }
+        }
+
+        async function searchUsers() {
+            userQuery.page = 1;
+            await loadUsers();
+        }
+
+        async function resetUserSearch() {
+            userQuery.userName = "";
+            userQuery.page = 1;
+            await loadUsers();
+        }
+
+        async function changeUserPage(page) {
+            if (page < 1 || page > (userPage.value.totalPages || 1)) {
+                return;
+            }
+            userQuery.page = page;
+            await loadUsers();
+        }
+
+        function resetUserForm() {
+            userForm.id = null;
+            userForm.userName = "";
+            userForm.userPwd = "";
+            userForm.userHeader = "";
+            userForm.userPhonenum = "";
+            userForm.userEmail = "";
+            userForm.roleIds = [];
+            userFormError.value = "";
+        }
+
+        function openCreateUserModal() {
+            resetUserForm();
+            showUserModal.value = true;
+        }
+
+        function openEditUserModal(user) {
+            userForm.id = user.id;
+            userForm.userName = user.userName || "";
+            userForm.userPwd = "";
+            userForm.userHeader = user.userHeader || "";
+            userForm.userPhonenum = user.userPhonenum || "";
+            userForm.userEmail = user.userEmail || "";
+            userForm.roleIds = [...(user.roleIds || [])];
+            userFormError.value = "";
+            showUserModal.value = true;
+        }
+
+        function closeUserModal() {
+            showUserModal.value = false;
+            resetUserForm();
+        }
+
+        function validateUserForm() {
+            if (!userForm.userName) {
+                userFormError.value = "用户名不能为空";
+                return false;
+            }
+            if (!userForm.id && !userForm.userPwd) {
+                userFormError.value = "新增用户时密码不能为空";
+                return false;
+            }
+            userFormError.value = "";
+            return true;
+        }
+
+        async function submitUserForm() {
+            if (!validateUserForm()) {
+                return;
+            }
+            userSubmitting.value = true;
+            userFormError.value = "";
+            const isEdit = Boolean(userForm.id);
+            const payload = {
+                userName: userForm.userName,
+                userPwd: userForm.userPwd,
+                userHeader: userForm.userHeader || null,
+                userPhonenum: userForm.userPhonenum || null,
+                userEmail: userForm.userEmail || null,
+                roleIds: userForm.roleIds || []
+            };
+            if (isEdit && !payload.userPwd) {
+                delete payload.userPwd;
+            }
+
+            try {
+                await apiRequest(isEdit ? `/api/users/${userForm.id}` : "/api/users", {
+                    method: isEdit ? "PUT" : "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+                closeUserModal();
+                await loadUsers();
+                await refreshContext(false);
+                if (activeMenu.value === "dashboard") {
+                    await loadHomeData();
+                }
+                window.alert(isEdit ? "用户修改成功" : "用户创建成功");
+            } catch (error) {
+                userFormError.value = error.message || "提交失败";
+            } finally {
+                userSubmitting.value = false;
+            }
+        }
+
+        async function deleteUser(user) {
+            if (!window.confirm(`确认删除用户「${user.userName}」吗？`)) {
+                return;
+            }
+            try {
+                await apiRequest(`/api/users/${user.id}`, {
+                    method: "DELETE"
+                });
+                await loadUsers();
+                await refreshContext(false);
+                if (activeMenu.value === "dashboard") {
+                    await loadHomeData();
+                }
+                window.alert("用户删除成功");
+            } catch (error) {
+                window.alert(error.message || "删除失败");
+            }
+        }
+
+        function resetRoleForm() {
+            roleForm.id = null;
+            roleForm.roleCode = "";
+            roleForm.roleName = "";
+            roleForm.roleDescription = "";
+            roleForm.sortNum = 0;
+            roleForm.enabled = true;
+            roleForm.permissionIds = [];
+            roleFormError.value = "";
+        }
+
+        function openCreateRoleModal() {
+            resetRoleForm();
+            showRoleModal.value = true;
+        }
+
+        function openEditRoleModal(role) {
+            roleForm.id = role.id;
+            roleForm.roleCode = role.roleCode || "";
+            roleForm.roleName = role.roleName || "";
+            roleForm.roleDescription = role.roleDescription || "";
+            roleForm.sortNum = role.sortNum ?? 0;
+            roleForm.enabled = role.enabled !== false;
+            roleForm.permissionIds = [...(role.permissionIds || [])];
+            roleFormError.value = "";
+            showRoleModal.value = true;
+        }
+
+        function closeRoleModal() {
+            showRoleModal.value = false;
+            resetRoleForm();
+        }
+
+        function selectAllPermissions() {
+            roleForm.permissionIds = flattenedPermissionTree.value.map((item) => item.id);
+        }
+
+        function clearAllPermissions() {
+            roleForm.permissionIds = [];
+        }
+
+        async function submitRoleForm() {
+            if (!roleForm.roleCode || !roleForm.roleName) {
+                roleFormError.value = "角色编码和角色名称不能为空";
+                return;
+            }
+            roleSubmitting.value = true;
+            roleFormError.value = "";
+            const isEdit = Boolean(roleForm.id);
+            const payload = {
+                roleCode: roleForm.roleCode,
+                roleName: roleForm.roleName,
+                roleDescription: roleForm.roleDescription || null,
+                sortNum: Number(roleForm.sortNum || 0),
+                enabled: Boolean(roleForm.enabled),
+                permissionIds: roleForm.permissionIds || []
+            };
+
+            try {
+                await apiRequest(isEdit ? `/api/roles/${roleForm.id}` : "/api/roles", {
+                    method: isEdit ? "PUT" : "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+                closeRoleModal();
+                await Promise.all([loadRoles(), loadPermissions(), refreshContext(false)]);
+                if (activeMenu.value === "dashboard") {
+                    await loadHomeData();
+                }
+                window.alert(isEdit ? "角色修改成功" : "角色创建成功");
+            } catch (error) {
+                roleFormError.value = error.message || "提交失败";
+            } finally {
+                roleSubmitting.value = false;
+            }
+        }
+
+        async function deleteRole(role) {
+            if (!window.confirm(`确认删除角色「${role.roleName}」吗？`)) {
+                return;
+            }
+            try {
+                await apiRequest(`/api/roles/${role.id}`, {
+                    method: "DELETE"
+                });
+                await Promise.all([loadRoles(), loadRoleOptions(), refreshContext(false)]);
+                if (activeMenu.value === "dashboard") {
+                    await loadHomeData();
+                }
+                window.alert("角色删除成功");
+            } catch (error) {
+                window.alert(error.message || "删除失败");
+            }
+        }
+
+        async function resetRoleSearch() {
+            roleQuery.roleName = "";
+            await loadRoles();
+        }
+
+        function resetPermissionForm() {
+            permissionForm.id = null;
+            permissionForm.permissionCode = "";
+            permissionForm.permissionName = "";
+            permissionForm.permissionType = "MENU";
+            permissionForm.parentId = 0;
+            permissionForm.menuKey = "";
+            permissionForm.routePath = "";
+            permissionForm.componentPath = "";
+            permissionForm.icon = "";
+            permissionForm.apiPattern = "";
+            permissionForm.httpMethod = "";
+            permissionForm.sortNum = 0;
+            permissionForm.visible = true;
+            permissionForm.description = "";
+            permissionFormError.value = "";
+        }
+
+        function openCreatePermissionModal() {
+            resetPermissionForm();
+            showPermissionModal.value = true;
+        }
+
+        function openEditPermissionModal(permission) {
+            permissionForm.id = permission.id;
+            permissionForm.permissionCode = permission.permissionCode || "";
+            permissionForm.permissionName = permission.permissionName || "";
+            permissionForm.permissionType = permission.permissionType || "MENU";
+            permissionForm.parentId = permission.parentId ?? 0;
+            permissionForm.menuKey = permission.menuKey || "";
+            permissionForm.routePath = permission.routePath || "";
+            permissionForm.componentPath = permission.componentPath || "";
+            permissionForm.icon = permission.icon || "";
+            permissionForm.apiPattern = permission.apiPattern || "";
+            permissionForm.httpMethod = permission.httpMethod || "";
+            permissionForm.sortNum = permission.sortNum ?? 0;
+            permissionForm.visible = permission.visible !== false;
+            permissionForm.description = permission.description || "";
+            permissionFormError.value = "";
+            showPermissionModal.value = true;
+        }
+
+        function closePermissionModal() {
+            showPermissionModal.value = false;
+            resetPermissionForm();
+        }
+
+        async function submitPermissionForm() {
+            if (!permissionForm.permissionCode || !permissionForm.permissionName) {
+                permissionFormError.value = "权限编码和权限名称不能为空";
+                return;
+            }
+            permissionSubmitting.value = true;
+            permissionFormError.value = "";
+            const isEdit = Boolean(permissionForm.id);
+            const payload = {
+                permissionCode: permissionForm.permissionCode,
+                permissionName: permissionForm.permissionName,
+                permissionType: permissionForm.permissionType,
+                parentId: Number(permissionForm.parentId || 0),
+                menuKey: permissionForm.permissionType === "MENU" ? (permissionForm.menuKey || null) : null,
+                routePath: permissionForm.permissionType === "MENU" ? (permissionForm.routePath || null) : null,
+                componentPath: permissionForm.permissionType === "MENU" ? (permissionForm.componentPath || null) : null,
+                icon: permissionForm.permissionType === "MENU" ? (permissionForm.icon || null) : null,
+                apiPattern: permissionForm.permissionType === "API" ? (permissionForm.apiPattern || null) : null,
+                httpMethod: permissionForm.permissionType === "API" ? (permissionForm.httpMethod || null) : null,
+                sortNum: Number(permissionForm.sortNum || 0),
+                visible: Boolean(permissionForm.visible),
+                description: permissionForm.description || null
+            };
+            try {
+                await apiRequest(isEdit ? `/api/permissions/${permissionForm.id}` : "/api/permissions", {
+                    method: isEdit ? "PUT" : "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+                closePermissionModal();
+                await Promise.all([loadPermissions(), refreshContext(false)]);
+                if (activeMenu.value === "dashboard") {
+                    await loadHomeData();
+                }
+                window.alert(isEdit ? "权限修改成功" : "权限创建成功");
+            } catch (error) {
+                permissionFormError.value = error.message || "提交失败";
+            } finally {
+                permissionSubmitting.value = false;
+            }
+        }
+
+        async function deletePermission(permission) {
+            if (!window.confirm(`确认删除权限「${permission.permissionName}」吗？`)) {
+                return;
+            }
+            try {
+                await apiRequest(`/api/permissions/${permission.id}`, {
+                    method: "DELETE"
+                });
+                await Promise.all([loadPermissions(), refreshContext(false)]);
+                if (activeMenu.value === "dashboard") {
+                    await loadHomeData();
+                }
+                window.alert("权限删除成功");
+            } catch (error) {
+                window.alert(error.message || "删除失败");
+            }
+        }
+
+        function resetProfileForm() {
+            profileForm.userName = currentUser.value.userName || "";
+            profileForm.userHeader = currentUser.value.userHeader || "";
+            profileForm.userPhonenum = currentUser.value.userPhonenum || "";
+            profileForm.userEmail = currentUser.value.userEmail || "";
+            profileFormError.value = "";
+        }
+
+        function openProfileModal() {
+            resetProfileForm();
+            showProfileModal.value = true;
+        }
+
+        function closeProfileModal() {
+            showProfileModal.value = false;
+            profileFormError.value = "";
+        }
+
+        async function submitProfileForm() {
+            if (!profileForm.userName) {
+                profileFormError.value = "用户名不能为空";
+                return;
+            }
+            profileSubmitting.value = true;
+            profileFormError.value = "";
+            try {
+                await apiRequest("/api/user/profile", {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        userName: profileForm.userName,
+                        userHeader: profileForm.userHeader || null,
+                        userPhonenum: profileForm.userPhonenum || null,
+                        userEmail: profileForm.userEmail || null
+                    })
+                });
+                closeProfileModal();
+                await refreshContext(false);
+                window.alert("个人资料更新成功");
+            } catch (error) {
+                profileFormError.value = error.message || "保存失败";
+            } finally {
+                profileSubmitting.value = false;
+            }
+        }
+
+        function resetPasswordForm() {
+            passwordForm.oldPassword = "";
+            passwordForm.newPassword = "";
+            passwordForm.confirmPassword = "";
+            passwordFormError.value = "";
+        }
+
+        function openPasswordModal() {
+            resetPasswordForm();
+            showPasswordModal.value = true;
+        }
+
+        function closePasswordModal() {
+            showPasswordModal.value = false;
+            resetPasswordForm();
+        }
+
+        async function submitPasswordForm() {
+            if (!passwordForm.oldPassword) {
+                passwordFormError.value = "请输入旧密码";
+                return;
+            }
+            if (!passwordForm.newPassword) {
+                passwordFormError.value = "请输入新密码";
+                return;
+            }
+            if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                passwordFormError.value = "两次输入的新密码不一致";
+                return;
+            }
+            passwordSubmitting.value = true;
+            passwordFormError.value = "";
+            try {
+                await apiRequest("/api/user/password", {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        oldPassword: passwordForm.oldPassword,
+                        newPassword: passwordForm.newPassword,
+                        confirmPassword: passwordForm.confirmPassword
+                    })
+                });
+                closePasswordModal();
+                window.alert("密码修改成功");
+            } catch (error) {
+                passwordFormError.value = error.message || "修改失败";
+            } finally {
+                passwordSubmitting.value = false;
+            }
+        }
+
+        async function searchLogs() {
+            logQuery.page = 1;
+            await loadLogs();
+        }
+
+        async function resetLogSearch() {
+            logQuery.userName = "";
+            logQuery.page = 1;
+            await loadLogs();
+        }
+
+        async function changeLogPage(page) {
+            if (page < 1 || page > (logPage.value.totalPages || 1)) {
+                return;
+            }
+            logQuery.page = page;
+            await loadLogs();
+        }
+
+        async function logout() {
+            try {
+                await authorizedFetch("/api/user/logout", {
+                    method: "POST"
+                });
+            } finally {
+                redirectToLogin();
+            }
+        }
+
+        onMounted(async () => {
+            try {
+                await loadCurrentUser();
+                if (activeMenu.value) {
+                    await loadSectionData(activeMenu.value);
+                }
+            } catch (error) {
+                handleUnauthorized();
+            }
+        });
+
+        return {
+            pageIcons,
+            currentUser,
+            isCollapsed,
+            activeMenu,
+            currentSection,
+            currentRoleText,
+            flatMenus,
+            flattenedPermissionTree,
+            parentPermissionOptions,
+            homeStats,
+            homeRecentLogs,
+            userLoading,
+            userError,
+            userPage,
+            userQuery,
+            showUserModal,
+            userForm,
+            userFormError,
+            userSubmitting,
+            roleLoading,
+            roleError,
+            roleList,
+            roleOptions,
+            roleQuery,
+            showRoleModal,
+            roleForm,
+            roleFormError,
+            roleSubmitting,
+            permissionLoading,
+            permissionError,
+            showPermissionModal,
+            permissionForm,
+            permissionFormError,
+            permissionSubmitting,
+            profileSubmitting,
+            profileFormError,
+            showProfileModal,
+            profileForm,
+            passwordSubmitting,
+            passwordFormError,
+            showPasswordModal,
+            passwordForm,
+            logLoading,
+            logError,
+            logPage,
+            logQuery,
+            can,
+            resolveMenuIcon,
+            formatDateTime,
+            formatRoleNames,
+            formatPermissionOption,
+            toggleSidebar,
+            activateMenu,
+            handlePrimaryAction,
+            searchUsers,
+            resetUserSearch,
+            changeUserPage,
+            openCreateUserModal,
+            openEditUserModal,
+            closeUserModal,
+            submitUserForm,
+            deleteUser,
+            loadRoles,
+            resetRoleSearch,
+            openCreateRoleModal,
+            openEditRoleModal,
+            closeRoleModal,
+            selectAllPermissions,
+            clearAllPermissions,
+            submitRoleForm,
+            deleteRole,
+            loadPermissions,
+            openCreatePermissionModal,
+            openEditPermissionModal,
+            closePermissionModal,
+            submitPermissionForm,
+            deletePermission,
+            openProfileModal,
+            closeProfileModal,
+            submitProfileForm,
+            openPasswordModal,
+            closePasswordModal,
+            submitPasswordForm,
+            searchLogs,
+            resetLogSearch,
+            changeLogPage,
+            logout
+        };
+    }
+}).mount("#app");

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cd.mapper.PermissionMapper">
+
+    <resultMap id="PermissionEntityResultMap" type="com.cd.entity.PermissionEntity">
+        <id property="id" column="id"/>
+        <result property="permissionCode" column="permission_code"/>
+        <result property="permissionName" column="permission_name"/>
+        <result property="permissionType" column="permission_type"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="menuKey" column="menu_key"/>
+        <result property="routePath" column="route_path"/>
+        <result property="componentPath" column="component_path"/>
+        <result property="icon" column="icon"/>
+        <result property="apiPattern" column="api_pattern"/>
+        <result property="httpMethod" column="http_method"/>
+        <result property="sortNum" column="sort_num"/>
+        <result property="visible" column="visible"/>
+        <result property="description" column="description"/>
+        <result property="createAt" column="create_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="PermissionColumns">
+        p.id, p.permission_code, p.permission_name, p.permission_type, p.parent_id, p.menu_key, p.route_path,
+        p.component_path, p.icon, p.api_pattern, p.http_method, p.sort_num, p.visible, p.description, p.create_at, p.updated_at
+    </sql>
+
+    <select id="selectAll" resultMap="PermissionEntityResultMap">
+        SELECT <include refid="PermissionColumns"/>
+        FROM permission p
+        ORDER BY p.sort_num ASC, p.id ASC
+    </select>
+
+    <select id="selectPermissionsByUserId" resultMap="PermissionEntityResultMap">
+        SELECT DISTINCT <include refid="PermissionColumns"/>
+        FROM permission p
+        INNER JOIN role_permission rp ON rp.permission_id = p.id
+        INNER JOIN user_role ur ON ur.role_id = rp.role_id
+        WHERE ur.user_id = #{userId}
+        ORDER BY p.sort_num ASC, p.id ASC
+    </select>
+
+    <select id="selectById" resultMap="PermissionEntityResultMap">
+        SELECT <include refid="PermissionColumns"/>
+        FROM permission p
+        WHERE p.id = #{id}
+    </select>
+
+    <select id="selectByCode" resultMap="PermissionEntityResultMap">
+        SELECT <include refid="PermissionColumns"/>
+        FROM permission p
+        WHERE p.permission_code = #{permissionCode}
+    </select>
+
+    <insert id="insert" parameterType="com.cd.entity.PermissionEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO permission (
+            permission_code, permission_name, permission_type, parent_id, menu_key, route_path,
+            component_path, icon, api_pattern, http_method, sort_num, visible, description
+        )
+        VALUES (
+            #{permissionCode}, #{permissionName}, #{permissionType}, #{parentId}, #{menuKey}, #{routePath},
+            #{componentPath}, #{icon}, #{apiPattern}, #{httpMethod}, #{sortNum}, #{visible}, #{description}
+        )
+    </insert>
+
+    <update id="updateById" parameterType="com.cd.entity.PermissionEntity">
+        UPDATE permission
+        SET permission_code = #{permissionCode},
+            permission_name = #{permissionName},
+            permission_type = #{permissionType},
+            parent_id = #{parentId},
+            menu_key = #{menuKey},
+            route_path = #{routePath},
+            component_path = #{componentPath},
+            icon = #{icon},
+            api_pattern = #{apiPattern},
+            http_method = #{httpMethod},
+            sort_num = #{sortNum},
+            visible = #{visible},
+            description = #{description}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM permission
+        WHERE id = #{id}
+    </delete>
+
+</mapper>

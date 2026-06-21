@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cd.mapper.RoleMapper">
+
+    <resultMap id="RoleEntityResultMap" type="com.cd.entity.RoleEntity">
+        <id property="id" column="id"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="roleName" column="role_name"/>
+        <result property="roleDescription" column="role_description"/>
+        <result property="sortNum" column="sort_num"/>
+        <result property="enabled" column="enabled"/>
+        <result property="createAt" column="create_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <resultMap id="RoleOptionResultMap" type="com.cd.dto.RoleOptionResponse">
+        <id property="id" column="id"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="roleName" column="role_name"/>
+    </resultMap>
+
+    <sql id="RoleColumns">
+        id, role_code, role_name, role_description, sort_num, enabled, create_at, updated_at
+    </sql>
+
+    <select id="selectAll" resultMap="RoleEntityResultMap">
+        SELECT <include refid="RoleColumns"/>
+        FROM role
+        <where>
+            <if test="roleName != null and roleName != ''">
+                AND (role_name LIKE CONCAT('%', #{roleName}, '%')
+                OR role_code LIKE CONCAT('%', #{roleName}, '%'))
+            </if>
+        </where>
+        ORDER BY sort_num ASC, id ASC
+    </select>
+
+    <select id="selectOptions" resultMap="RoleOptionResultMap">
+        SELECT id, role_code, role_name
+        FROM role
+        WHERE enabled = 1
+        ORDER BY sort_num ASC, id ASC
+    </select>
+
+    <select id="selectById" resultMap="RoleEntityResultMap">
+        SELECT <include refid="RoleColumns"/>
+        FROM role
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByCode" resultMap="RoleEntityResultMap">
+        SELECT <include refid="RoleColumns"/>
+        FROM role
+        WHERE role_code = #{roleCode}
+    </select>
+
+    <insert id="insert" parameterType="com.cd.entity.RoleEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO role (
+            role_code, role_name, role_description, sort_num, enabled
+        )
+        VALUES (
+            #{roleCode}, #{roleName}, #{roleDescription}, #{sortNum}, #{enabled}
+        )
+    </insert>
+
+    <update id="updateById" parameterType="com.cd.entity.RoleEntity">
+        UPDATE role
+        SET role_code = #{roleCode},
+            role_name = #{roleName},
+            role_description = #{roleDescription},
+            sort_num = #{sortNum},
+            enabled = #{enabled}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM role
+        WHERE id = #{id}
+    </delete>
+
+    <select id="selectRolesByUserId" resultMap="RoleOptionResultMap">
+        SELECT r.id, r.role_code, r.role_name
+        FROM role r
+        INNER JOIN user_role ur ON ur.role_id = r.id
+        WHERE ur.user_id = #{userId}
+        ORDER BY r.sort_num ASC, r.id ASC
+    </select>
+
+    <select id="selectPermissionIdsByRoleId" resultType="long">
+        SELECT permission_id
+        FROM role_permission
+        WHERE role_id = #{roleId}
+        ORDER BY permission_id
+    </select>
+
+    <delete id="deleteRolePermissionsByRoleId">
+        DELETE FROM role_permission
+        WHERE role_id = #{roleId}
+    </delete>
+
+    <insert id="insertRolePermissions">
+        INSERT INTO role_permission (role_id, permission_id)
+        VALUES
+        <foreach collection="permissionIds" item="permissionId" separator=",">
+            (#{roleId}, #{permissionId})
+        </foreach>
+    </insert>
+
+</mapper>

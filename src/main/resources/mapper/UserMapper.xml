@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cd.mapper.UserMapper">
+
+    <resultMap id="UserEntityResultMap" type="com.cd.entity.UserEntity">
+        <id property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="userPwd" column="user_pwd"/>
+        <result property="userHeader" column="user_header"/>
+        <result property="userPhonenum" column="user_phonenum"/>
+        <result property="userEmail" column="user_email"/>
+        <result property="enabled" column="enabled"/>
+        <result property="superAdmin" column="is_super_admin"/>
+        <result property="createAt" column="create_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+    </resultMap>
+
+    <resultMap id="UserResponseResultMap" type="com.cd.dto.UserResponse">
+        <id property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="userHeader" column="user_header"/>
+        <result property="userPhonenum" column="user_phonenum"/>
+        <result property="userEmail" column="user_email"/>
+        <result property="enabled" column="enabled"/>
+        <result property="superAdmin" column="is_super_admin"/>
+        <result property="createAt" column="create_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+    </resultMap>
+
+    <sql id="ViewColumns">
+        id, user_name, user_header, user_phonenum, user_email, enabled, is_super_admin, create_at, updated_at, last_login_time
+    </sql>
+
+    <sql id="AllColumns">
+        id, user_name, user_pwd, user_header, user_phonenum, user_email, enabled, is_super_admin, create_at, updated_at, last_login_time
+    </sql>
+
+    <sql id="QueryCondition">
+        <if test="userName != null and userName != ''">
+            AND user_name LIKE CONCAT('%', #{userName}, '%')
+        </if>
+    </sql>
+
+    <select id="countByUserName" resultType="long">
+        SELECT COUNT(1)
+        FROM `user`
+        <where>
+            <include refid="QueryCondition"/>
+        </where>
+    </select>
+
+    <select id="selectPage" resultMap="UserResponseResultMap">
+        SELECT <include refid="ViewColumns"/>
+        FROM `user`
+        <where>
+            <include refid="QueryCondition"/>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="selectViewById" resultMap="UserResponseResultMap">
+        SELECT <include refid="ViewColumns"/>
+        FROM `user`
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectEntityById" resultMap="UserEntityResultMap">
+        SELECT <include refid="AllColumns"/>
+        FROM `user`
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectEntityByUserName" resultMap="UserEntityResultMap">
+        SELECT <include refid="AllColumns"/>
+        FROM `user`
+        WHERE user_name = #{userName}
+    </select>
+
+    <insert id="insert" parameterType="com.cd.entity.UserEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `user` (
+            user_name, user_pwd, user_header, user_phonenum, user_email, enabled, is_super_admin, last_login_time
+        )
+        VALUES (
+            #{userName}, #{userPwd}, #{userHeader}, #{userPhonenum}, #{userEmail}, #{enabled}, #{superAdmin}, #{lastLoginTime}
+        )
+    </insert>
+
+    <update id="updateById" parameterType="com.cd.entity.UserEntity">
+        UPDATE `user`
+        SET user_name = #{userName},
+            user_pwd = #{userPwd},
+            user_header = #{userHeader},
+            user_phonenum = #{userPhonenum},
+            user_email = #{userEmail},
+            enabled = #{enabled},
+            is_super_admin = #{superAdmin},
+            last_login_time = #{lastLoginTime}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateLastLoginTime">
+        UPDATE `user`
+        SET last_login_time = #{lastLoginTime}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePasswordById">
+        UPDATE `user`
+        SET user_pwd = #{userPwd}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM `user`
+        WHERE id = #{id}
+    </delete>
+
+    <select id="selectRoleIdsByUserId" resultType="long">
+        SELECT role_id
+        FROM user_role
+        WHERE user_id = #{userId}
+        ORDER BY role_id
+    </select>
+
+    <delete id="deleteUserRolesByUserId">
+        DELETE FROM user_role
+        WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertUserRoles">
+        INSERT INTO user_role (user_id, role_id)
+        VALUES
+        <foreach collection="roleIds" item="roleId" separator=",">
+            (#{userId}, #{roleId})
+        </foreach>
+    </insert>
+
+</mapper>

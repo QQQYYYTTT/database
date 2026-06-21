@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cd.mapper.LoginLogMapper">
+
+    <resultMap id="LoginLogResponseResultMap" type="com.cd.dto.LoginLogResponse">
+        <id property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="loginStatus" column="login_status"/>
+        <result property="loginIp" column="login_ip"/>
+        <result property="loginMessage" column="login_message"/>
+        <result property="loginTime" column="login_time"/>
+    </resultMap>
+
+    <sql id="QueryCondition">
+        <if test="userName != null and userName != ''">
+            AND user_name LIKE CONCAT('%', #{userName}, '%')
+        </if>
+    </sql>
+
+    <insert id="insert" parameterType="com.cd.entity.LoginLogEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO login_log (user_name, login_status, login_ip, login_message, login_time)
+        VALUES (#{userName}, #{loginStatus}, #{loginIp}, #{loginMessage}, #{loginTime})
+    </insert>
+
+    <select id="countByUserName" resultType="long">
+        SELECT COUNT(1)
+        FROM login_log
+        <where>
+            <include refid="QueryCondition"/>
+        </where>
+    </select>
+
+    <select id="selectPage" resultMap="LoginLogResponseResultMap">
+        SELECT id, user_name, login_status, login_ip, login_message, login_time
+        FROM login_log
+        <where>
+            <include refid="QueryCondition"/>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+</mapper>

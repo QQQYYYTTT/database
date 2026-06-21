@@ -1,0 +1,95 @@
+### Query all tests
+GET http://localhost:8081/api/test
+
+### Query one test
+GET http://localhost:8081/api/test/1
+
+### Create test
+POST http://localhost:8081/api/test
+Content-Type: application/json
+
+{
+  "name": "Alice",
+  "age": 22,
+  "email": "alice@example.com"
+}
+
+### Update test
+PUT http://localhost:8081/api/test/1
+Content-Type: application/json
+
+{
+  "name": "Alice Updated",
+  "age": 23,
+  "email": "alice.updated@example.com"
+}
+
+### Delete test
+DELETE http://localhost:8081/api/test/1
+
+### User login
+POST http://localhost:8081/api/user/login
+Content-Type: application/json
+
+{
+  "userName": "admin",
+  "userPwd": "admin"
+}
+
+### Current user
+GET http://localhost:8081/api/user/me
+Authorization: Bearer {{token}}
+
+### User logout
+POST http://localhost:8081/api/user/logout
+Authorization: Bearer {{token}}
+
+### Query users with pagination
+GET http://localhost:8081/api/users?page=1&size=10
+Authorization: Bearer {{token}}
+
+### Query users by userName
+GET http://localhost:8081/api/users?page=1&size=10&userName=admin
+Authorization: Bearer {{token}}
+
+### Query user by id
+GET http://localhost:8081/api/users/1
+Authorization: Bearer {{token}}
+
+### Create user
+POST http://localhost:8081/api/users
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "userName": "alice",
+  "userPwd": "alice123",
+  "userHeader": "https://example.com/avatar.png",
+  "userPhonenum": "13800138000",
+  "userEmail": "alice@example.com"
+}
+
+### Update user
+PUT http://localhost:8081/api/users/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "userName": "aliceUpdated",
+  "userPwd": "alice456",
+  "userHeader": "https://example.com/avatar-new.png",
+  "userPhonenum": "13900139000",
+  "userEmail": "alice.updated@example.com"
+}
+
+### Delete user
+DELETE http://localhost:8081/api/users/1
+Authorization: Bearer {{token}}
+
+### Query login logs with pagination
+GET http://localhost:8081/api/login-logs?page=1&size=10
+Authorization: Bearer {{token}}
+
+### Query login logs by userName
+GET http://localhost:8081/api/login-logs?page=1&size=10&userName=admin
+Authorization: Bearer {{token}}
