@@ -20,6 +20,7 @@ public class DatabaseBootstrapRunner {
     @PostConstruct
     public void initializeIfNecessary() {
         if (tableExists("user")) {
+            runRuntimeSync();
             return;
         }
 
@@ -32,8 +33,23 @@ public class DatabaseBootstrapRunner {
         );
         try {
             populator.execute(dataSource);
+            runRuntimeSync();
         } catch (ScriptException ex) {
             throw new IllegalStateException("Failed to initialize database schema", ex);
+        }
+    }
+
+    private void runRuntimeSync() {
+        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.setSqlScriptEncoding(StandardCharsets.UTF_8.name());
+        populator.addScripts(
+                new ClassPathResource("schema-routines.sql"),
+                new ClassPathResource("schema-runtime-sync.sql")
+        );
+        try {
+            populator.execute(dataSource);
+        } catch (ScriptException ex) {
+            throw new IllegalStateException("Failed to synchronize runtime database metadata", ex);
         }
     }
 

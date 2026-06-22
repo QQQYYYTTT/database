@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -21,13 +22,14 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 class DynamicMaskingDatabaseInspectionTest {
 
     private static final String JDBC_URL =
-            "jdbc:mysql://127.0.0.1:3306/stu_info2026?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8";
+            "jdbc:mysql://127.0.0.1:3306/stu_info2026_test?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8";
     private static final String JDBC_USER = "root";
     private static final String JDBC_PASSWORD = "root";
 
     @Test
     void inspectCurrentMaskingSetup() throws Exception {
         try (Connection connection = openConnection()) {
+            initializeDatabase(connection);
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema-routines.sql"));
             printObjectPresence(connection);
             printMaskingTableColumns(connection);
@@ -49,6 +51,7 @@ class DynamicMaskingDatabaseInspectionTest {
 
         try (Connection connection = openConnection();
              Statement statement = connection.createStatement()) {
+            initializeDatabase(connection);
             for (String sql : statements) {
                 statement.execute(sql);
             }
@@ -56,7 +59,18 @@ class DynamicMaskingDatabaseInspectionTest {
     }
 
     private Connection openConnection() throws SQLException {
-        return DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD);
+        Connection connection = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci");
+        }
+        return connection;
+    }
+
+    private void initializeDatabase(Connection connection) throws SQLException {
+        ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema.sql"));
+        ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema-routines.sql"));
+        ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema-post-data.sql"));
+        ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema-runtime-sync.sql"));
     }
 
     private void printObjectPresence(Connection connection) throws SQLException {
@@ -118,11 +132,11 @@ class DynamicMaskingDatabaseInspectionTest {
         long normalUserId = findUserIdByUserName(connection, "mask_normal");
         long studentUserId = findUserIdByUserName(connection, "2023001");
 
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", superAdminUserId, "SUPER_ADMIN", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", analystUserId, "ANALYST", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", normalUserId, "NORMAL", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", studentUserId, "STUDENT", "'2023001'", "NULL", "NULL"));
+        printStudentProcedureResults(connection, superAdminUserId, "SUPER_ADMIN", "2023001", null, null);
+        printStudentProcedureResults(connection, teacherUserId, "TEACHER", "2023001", null, null);
+        printStudentProcedureResults(connection, analystUserId, "ANALYST", "2023001", null, null);
+        printStudentProcedureResults(connection, normalUserId, "NORMAL", "2023001", null, null);
+        printStudentProcedureResults(connection, studentUserId, "STUDENT", "2023001", null, null);
     }
 
     private void printStudentScoreSamples(Connection connection) throws SQLException {
@@ -137,20 +151,20 @@ class DynamicMaskingDatabaseInspectionTest {
         long normalUserId = findUserIdByUserName(connection, "mask_normal");
         long studentUserId = findUserIdByUserName(connection, "2023001");
 
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", superAdminUserId, "SUPER_ADMIN", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", teacherUserId, "TEACHER", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", analystUserId, "ANALYST", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", normalUserId, "NORMAL", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", studentUserId, "STUDENT", "'2023001'", "NULL", "NULL"));
+        printScoreProcedureResults(connection, superAdminUserId, "SUPER_ADMIN", "2023001", null, null);
+        printScoreProcedureResults(connection, teacherUserId, "TEACHER", "2023001", null, null);
+        printScoreProcedureResults(connection, analystUserId, "ANALYST", "2023001", null, null);
+        printScoreProcedureResults(connection, normalUserId, "NORMAL", "2023001", null, null);
+        printScoreProcedureResults(connection, studentUserId, "STUDENT", "2023001", null, null);
     }
 
     private void printFilterSamples(Connection connection) throws SQLException {
         System.out.println("=== filter samples ===");
         long teacherUserId = findUserIdByUserName(connection, "mask_teacher");
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "'2023001'", "NULL", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "NULL", "'张'", "NULL"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "NULL", "NULL", "'计算机科学2301班'"));
-        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", teacherUserId, "TEACHER", "'2023001'", "'数据结构'", "'2023秋'"));
+        printStudentProcedureResults(connection, teacherUserId, "TEACHER", "2023001", null, null);
+        printStudentProcedureResults(connection, teacherUserId, "TEACHER", null, "张", null);
+        printStudentProcedureResults(connection, teacherUserId, "TEACHER", null, null, "计算机科学2301班");
+        printScoreProcedureResults(connection, teacherUserId, "TEACHER", "2023001", "数据结构", "2023秋");
     }
 
     private void printMaskFunctionSamples(Connection connection) throws SQLException {
@@ -193,12 +207,12 @@ class DynamicMaskingDatabaseInspectionTest {
         System.out.println("=== invalid role sample ===");
         long teacherUserId = findUserIdByUserName(connection, "mask_teacher");
         try {
-            printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "NOT_EXISTS_ROLE", "NULL", "NULL", "NULL"));
+            printStudentProcedureResults(connection, teacherUserId, "NOT_EXISTS_ROLE", null, null, null);
         } catch (SQLException ex) {
             System.out.println("CALL SP_QUERY_STUDENTS invalid role -> " + ex.getMessage());
         }
         try {
-            printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", 999999L, "TEACHER", "NULL", "NULL", "NULL"));
+            printStudentProcedureResults(connection, 999999L, "TEACHER", null, null, null);
         } catch (SQLException ex) {
             System.out.println("CALL SP_QUERY_STUDENTS invalid user -> " + ex.getMessage());
         }
@@ -268,6 +282,48 @@ class DynamicMaskingDatabaseInspectionTest {
         }
     }
 
+    private void printStudentProcedureResults(Connection connection,
+                                              long userId,
+                                              String roleCode,
+                                              String studentNo,
+                                              String name,
+                                              String className) throws SQLException {
+        String sql = "{CALL SP_QUERY_STUDENTS(?, ?, ?, ?, ?)}";
+        System.out.printf("CALL SP_QUERY_STUDENTS(%d, '%s', %s, %s, %s)%n",
+                userId, roleCode, printableValue(studentNo), printableValue(name), printableValue(className));
+        try (CallableStatement statement = connection.prepareCall(sql)) {
+            statement.setLong(1, userId);
+            statement.setString(2, roleCode);
+            statement.setString(3, studentNo);
+            statement.setString(4, name);
+            statement.setString(5, className);
+            try (ResultSet rs = statement.executeQuery()) {
+                printRows(rs);
+            }
+        }
+    }
+
+    private void printScoreProcedureResults(Connection connection,
+                                            long userId,
+                                            String roleCode,
+                                            String studentNo,
+                                            String courseName,
+                                            String semesterName) throws SQLException {
+        String sql = "{CALL SP_QUERY_STUDENT_SCORES(?, ?, ?, ?, ?)}";
+        System.out.printf("CALL SP_QUERY_STUDENT_SCORES(%d, '%s', %s, %s, %s)%n",
+                userId, roleCode, printableValue(studentNo), printableValue(courseName), printableValue(semesterName));
+        try (CallableStatement statement = connection.prepareCall(sql)) {
+            statement.setLong(1, userId);
+            statement.setString(2, roleCode);
+            statement.setString(3, studentNo);
+            statement.setString(4, courseName);
+            statement.setString(5, semesterName);
+            try (ResultSet rs = statement.executeQuery()) {
+                printRows(rs);
+            }
+        }
+    }
+
     private void printQueryResults(Connection connection, String sql) throws SQLException {
         System.out.println(sql);
         try (Statement statement = connection.createStatement();
@@ -309,6 +365,10 @@ class DynamicMaskingDatabaseInspectionTest {
                                 String arg4,
                                 String arg5) {
         return String.format("CALL %s(%d, '%s', %s, %s, %s)", procedureName, userId, roleCode, arg3, arg4, arg5);
+    }
+
+    private String printableValue(String value) {
+        return value == null ? "NULL" : "'" + value + "'";
     }
 
     private List<String> parseSqlScript(Path scriptPath) throws IOException {

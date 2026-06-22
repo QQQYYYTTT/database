@@ -611,6 +611,24 @@ textarea {
     line-height: 1.65;
 }
 
+.table-subtext {
+    margin-top: 4px;
+    color: var(--text-light);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.inline-code {
+    display: inline-block;
+    max-width: 280px;
+    padding: 4px 8px;
+    background: #f5f8fc;
+    color: #364761;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
 .state-block {
     padding: 18px 0 4px;
 }
@@ -983,6 +1001,13 @@ textarea {
     color: #23324b;
 }
 
+.rule-policy-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
 .panel-actions {
     display: flex;
     align-items: center;
@@ -1196,7 +1221,8 @@ textarea {
 
     .detail-grid-student,
     .detail-grid-student-detail,
-    .tree-list {
+    .tree-list,
+    .rule-policy-preview {
         grid-template-columns: 1fr;
     }
 

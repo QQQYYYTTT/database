@@ -62,6 +62,14 @@ const menuIcons = {
             <path d="M17 20V14" />
         </svg>
     `,
+    "masking-rule": `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M12 3L19 6V11C19 15.418 16.119 19.223 12 20.5C7.881 19.223 5 15.418 5 11V6L12 3Z" />
+            <path d="M8 12H16" />
+            <path d="M9.5 8.5H14.5" />
+            <path d="M9.5 15.5H14.5" />
+        </svg>
+    `,
     default: `
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
             <circle cx="12" cy="12" r="8" />
@@ -288,6 +296,28 @@ createApp({
             courseName: "",
             semesterName: ""
         });
+        const maskingRuleLoading = ref(false);
+        const maskingRuleError = ref("");
+        const maskingRulePage = ref(defaultPageData());
+        const maskingRuleRoleOptions = ref([]);
+        const maskingRuleFieldOptions = ref([]);
+        const showMaskingRuleModal = ref(false);
+        const maskingRuleSubmitting = ref(false);
+        const maskingRuleFormError = ref("");
+        const maskingRuleQuery = reactive({
+            roleId: "",
+            sensitiveFieldId: "",
+            page: 1,
+            size: 10
+        });
+        const maskingRuleForm = reactive({
+            roleId: "",
+            roleName: "",
+            sensitiveFieldId: "",
+            fieldLabel: "",
+            policyId: "",
+            availablePolicies: []
+        });
 
         const sectionMap = {
             dashboard: {
@@ -313,6 +343,12 @@ createApp({
                 headerTitle: "学生成绩",
                 description: "按当前登录角色动态展示成绩明细，敏感分数字段会按角色返回不同粒度。",
                 actionText: "刷新成绩信息"
+            },
+            "masking-rule": {
+                title: "脱敏规则管理",
+                headerTitle: "脱敏规则管理",
+                description: "按角色和敏感字段查看当前生效的脱敏策略，并支持直接修改角色对应字段的脱敏规则。",
+                actionText: "刷新脱敏规则"
             },
             user: {
                 title: "用户管理",
@@ -344,6 +380,9 @@ createApp({
         const flattenedPermissionTree = computed(() => flattenPermissionTree(permissionTree.value || []));
         const parentPermissionOptions = computed(() =>
             flattenedPermissionTree.value.filter((item) => item.id !== permissionForm.id)
+        );
+        const selectedMaskingRulePolicy = computed(() =>
+            (maskingRuleForm.availablePolicies || []).find((item) => String(item.policyId) === String(maskingRuleForm.policyId)) || null
         );
 
         const currentSection = computed(() => sectionMap[activeMenu.value] || {
@@ -658,6 +697,29 @@ createApp({
             }
         }
 
+        async function loadMaskingRuleOptions() {
+            const { result } = await apiRequest("/api/masking-rules/options");
+            maskingRuleRoleOptions.value = result.data?.roles || [];
+            maskingRuleFieldOptions.value = result.data?.fields || [];
+        }
+
+        async function loadMaskingRules() {
+            maskingRuleLoading.value = true;
+            maskingRuleError.value = "";
+            try {
+                const query = buildQuery(maskingRuleQuery);
+                const { result } = await apiRequest(query ? `/api/masking-rules?${query}` : "/api/masking-rules");
+                maskingRulePage.value = result.data || defaultPageData();
+                if (maskingRuleRoleOptions.value.length === 0 || maskingRuleFieldOptions.value.length === 0) {
+                    await loadMaskingRuleOptions();
+                }
+            } catch (error) {
+                maskingRuleError.value = error.message || "读取脱敏规则失败";
+            } finally {
+                maskingRuleLoading.value = false;
+            }
+        }
+
         async function loadSectionData(menuKey) {
             if (!menuKey) {
                 return;
@@ -676,6 +738,10 @@ createApp({
             }
             if (menuKey === "score") {
                 await loadStudentScores();
+                return;
+            }
+            if (menuKey === "masking-rule") {
+                await loadMaskingRules();
                 return;
             }
             if (menuKey === "user") {
@@ -749,6 +815,81 @@ createApp({
             studentScoreQuery.courseName = "";
             studentScoreQuery.semesterName = "";
             await loadStudentScores();
+        }
+
+        async function searchMaskingRules() {
+            maskingRuleQuery.page = 1;
+            await loadMaskingRules();
+        }
+
+        async function resetMaskingRuleSearch() {
+            maskingRuleQuery.roleId = "";
+            maskingRuleQuery.sensitiveFieldId = "";
+            maskingRuleQuery.page = 1;
+            await loadMaskingRules();
+        }
+
+        async function changeMaskingRulePage(page) {
+            if (page < 1 || page > (maskingRulePage.value.totalPages || 1)) {
+                return;
+            }
+            maskingRuleQuery.page = page;
+            await loadMaskingRules();
+        }
+
+        function resetMaskingRuleForm() {
+            maskingRuleForm.roleId = "";
+            maskingRuleForm.roleName = "";
+            maskingRuleForm.sensitiveFieldId = "";
+            maskingRuleForm.fieldLabel = "";
+            maskingRuleForm.policyId = "";
+            maskingRuleForm.availablePolicies = [];
+            maskingRuleFormError.value = "";
+        }
+
+        function openMaskingRuleModal(row) {
+            maskingRuleForm.roleId = row.roleId ? String(row.roleId) : "";
+            maskingRuleForm.roleName = row.roleName || "";
+            maskingRuleForm.sensitiveFieldId = row.sensitiveFieldId ? String(row.sensitiveFieldId) : "";
+            maskingRuleForm.fieldLabel = row.fieldLabel || `${row.tableName}.${row.columnName}`;
+            maskingRuleForm.policyId = row.effectivePolicyId ? String(row.effectivePolicyId) : "";
+            maskingRuleForm.availablePolicies = row.availablePolicies || [];
+            maskingRuleFormError.value = "";
+            showMaskingRuleModal.value = true;
+        }
+
+        function closeMaskingRuleModal() {
+            showMaskingRuleModal.value = false;
+            resetMaskingRuleForm();
+        }
+
+        async function submitMaskingRuleForm() {
+            if (!maskingRuleForm.roleId || !maskingRuleForm.sensitiveFieldId || !maskingRuleForm.policyId) {
+                maskingRuleFormError.value = "请选择角色、敏感字段和目标脱敏策略";
+                return;
+            }
+            maskingRuleSubmitting.value = true;
+            maskingRuleFormError.value = "";
+            try {
+                await apiRequest("/api/masking-rules", {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        roleId: Number(maskingRuleForm.roleId),
+                        sensitiveFieldId: Number(maskingRuleForm.sensitiveFieldId),
+                        policyId: Number(maskingRuleForm.policyId)
+                    })
+                });
+                closeMaskingRuleModal();
+                await loadMaskingRules();
+                window.alert("脱敏规则更新成功，重新查询学生信息或成绩即可看到最新效果");
+            } catch (error) {
+                maskingRuleFormError.value = error.message || "保存脱敏规则失败";
+            } finally {
+                maskingRuleSubmitting.value = false;
+            }
         }
 
         function resetUserForm() {
@@ -1369,6 +1510,17 @@ createApp({
             studentScoreError,
             studentScores,
             studentScoreQuery,
+            maskingRuleLoading,
+            maskingRuleError,
+            maskingRulePage,
+            maskingRuleRoleOptions,
+            maskingRuleFieldOptions,
+            maskingRuleQuery,
+            showMaskingRuleModal,
+            maskingRuleSubmitting,
+            maskingRuleFormError,
+            maskingRuleForm,
+            selectedMaskingRulePolicy,
             can,
             resolveMenuIcon,
             formatDateTime,
@@ -1387,6 +1539,12 @@ createApp({
             resetStudentProfileSearch,
             searchStudentScores,
             resetStudentScoreSearch,
+            searchMaskingRules,
+            resetMaskingRuleSearch,
+            changeMaskingRulePage,
+            openMaskingRuleModal,
+            closeMaskingRuleModal,
+            submitMaskingRuleForm,
             openCreateUserModal,
             openEditUserModal,
             closeUserModal,

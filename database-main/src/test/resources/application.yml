@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/stu_info2026?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
+    url: jdbc:mysql://127.0.0.1:3306/stu_info2026_test?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -8,7 +8,7 @@ spring:
     init:
       encoding: UTF-8
       mode: always
-      schema-locations: classpath:schema.sql,classpath:schema-routines.sql,classpath:schema-post-data.sql
+      schema-locations: classpath:schema.sql,classpath:schema-routines.sql,classpath:schema-post-data.sql,classpath:schema-runtime-sync.sql
 
 mybatis:
   mapper-locations: classpath*:mapper/*.xml

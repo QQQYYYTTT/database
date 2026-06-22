@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -202,6 +203,90 @@ class StudentMaskingApiIntegrationTest {
         assertTrue(containsText(data.path("permissionCodes"), "biz:score:view"));
         assertTrue(containsMenuKey(data.path("menuTree"), "student"));
         assertTrue(containsMenuKey(data.path("menuTree"), "score"));
+    }
+
+    @Test
+    void currentUserShouldExposeMaskingRuleMenuForAdminAccount() throws Exception {
+        JsonNode root = readBody(mockMvc.perform(
+                        get("/api/user/me")
+                                .header("Authorization", bearer(superAdminToken)))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode data = root.path("data");
+        assertTrue(containsText(data.path("permissionCodes"), "sys:masking-rule:view"));
+        assertTrue(containsText(data.path("permissionCodes"), "sys:masking-rule:update"));
+        assertTrue(containsMenuKey(data.path("menuTree"), "masking-rule"));
+    }
+
+    @Test
+    void maskingRuleListShouldSupportPaging() throws Exception {
+        JsonNode root = readBody(mockMvc.perform(
+                        get("/api/masking-rules")
+                                .header("Authorization", bearer(superAdminToken))
+                                .param("page", "1")
+                                .param("size", "5"))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode data = root.path("data");
+        assertEquals(1, data.path("page").asInt());
+        assertEquals(5, data.path("size").asInt());
+        assertTrue(data.path("records").isArray());
+        assertTrue(data.path("records").size() <= 5);
+        assertTrue(data.path("total").asLong() >= data.path("records").size());
+    }
+
+    @Test
+    void updatingMaskingRuleShouldTakeEffectImmediately() throws Exception {
+        JsonNode before = firstDataRow(mockMvc.perform(
+                        get("/api/student-profiles")
+                                .header("Authorization", bearer(teacherToken))
+                                .param("studentNo", "2023001"))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertEquals("138****0001", before.path("phone").asText());
+
+        JsonNode ruleList = readBody(mockMvc.perform(
+                        get("/api/masking-rules")
+                                .header("Authorization", bearer(superAdminToken))
+                                .param("roleId", "5")
+                                .param("sensitiveFieldId", "3")
+                                .param("page", "1")
+                                .param("size", "10"))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode row = ruleList.path("data").path("records").get(0);
+        Long originalPolicyId = row.path("effectivePolicyId").asLong();
+
+        try {
+            mockMvc.perform(
+                            put("/api/masking-rules")
+                                    .header("Authorization", bearer(superAdminToken))
+                                    .contentType("application/json")
+                                    .content("""
+                                            {"roleId":5,"sensitiveFieldId":3,"policyId":7}
+                                            """))
+                    .andExpect(status().isOk());
+
+            JsonNode after = firstDataRow(mockMvc.perform(
+                            get("/api/student-profiles")
+                                    .header("Authorization", bearer(teacherToken))
+                                    .param("studentNo", "2023001"))
+                    .andExpect(status().isOk())
+                    .andReturn());
+            assertEquals("***********", after.path("phone").asText());
+        } finally {
+            mockMvc.perform(
+                            put("/api/masking-rules")
+                                    .header("Authorization", bearer(superAdminToken))
+                                    .contentType("application/json")
+                                    .content("""
+                                            {"roleId":5,"sensitiveFieldId":3,"policyId":%d}
+                                            """.formatted(originalPolicyId)))
+                    .andExpect(status().isOk());
+        }
     }
 
     private String tokenFor(String userName) {

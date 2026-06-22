@@ -250,10 +250,10 @@ DEALLOCATE PREPARE stmt;
 SET @sp_query_students = '
 CREATE PROCEDURE SP_QUERY_STUDENTS(
     IN p_user_id BIGINT,
-    IN p_role_code VARCHAR(50),
-    IN p_student_no VARCHAR(30),
-    IN p_name VARCHAR(50),
-    IN p_class_name VARCHAR(100)
+    IN p_role_code VARCHAR(50) CHARSET utf8mb4,
+    IN p_student_no VARCHAR(30) CHARSET utf8mb4,
+    IN p_name VARCHAR(50) CHARSET utf8mb4,
+    IN p_class_name VARCHAR(100) CHARSET utf8mb4
 )
 BEGIN
     DECLARE v_role_id BIGINT DEFAULT NULL;
@@ -324,10 +324,10 @@ DEALLOCATE PREPARE stmt;
 SET @sp_query_student_scores = '
 CREATE PROCEDURE SP_QUERY_STUDENT_SCORES(
     IN p_user_id BIGINT,
-    IN p_role_code VARCHAR(50),
-    IN p_student_no VARCHAR(30),
-    IN p_course_name VARCHAR(100),
-    IN p_semester_name VARCHAR(100)
+    IN p_role_code VARCHAR(50) CHARSET utf8mb4,
+    IN p_student_no VARCHAR(30) CHARSET utf8mb4,
+    IN p_course_name VARCHAR(100) CHARSET utf8mb4,
+    IN p_semester_name VARCHAR(100) CHARSET utf8mb4
 )
 BEGIN
     DECLARE v_role_id BIGINT DEFAULT NULL;

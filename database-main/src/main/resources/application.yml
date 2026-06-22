@@ -10,7 +10,7 @@ spring:
     init:
       encoding: UTF-8
       mode: never
-      schema-locations: classpath:schema.sql,classpath:schema-routines.sql,classpath:schema-post-data.sql
+      schema-locations: classpath:schema.sql,classpath:schema-routines.sql,classpath:schema-post-data.sql,classpath:schema-runtime-sync.sql
 
 mybatis:
   mapper-locations: classpath*:mapper/*.xml

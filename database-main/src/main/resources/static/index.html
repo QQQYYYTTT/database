@@ -427,6 +427,98 @@
                 </section>
             </section>
 
+            <section v-else-if="activeMenu === 'masking-rule'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>当前脱敏规则</strong>
+                        <span>按角色和敏感字段查看当前生效策略。修改后会直接作用于现有角色脱敏链路，重新查询学生信息或成绩即可看到最新效果。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <select v-model="maskingRuleQuery.roleId" class="toolbar-input">
+                                <option value="">全部角色</option>
+                                <option v-for="role in maskingRuleRoleOptions" :key="`mask-role-${role.id}`" :value="String(role.id)">
+                                    {{ role.roleName }}
+                                </option>
+                            </select>
+                            <select v-model="maskingRuleQuery.sensitiveFieldId" class="toolbar-input">
+                                <option value="">全部敏感字段</option>
+                                <option v-for="field in maskingRuleFieldOptions" :key="`mask-field-${field.sensitiveFieldId}`" :value="String(field.sensitiveFieldId)">
+                                    {{ field.fieldLabel }}
+                                </option>
+                            </select>
+                            <button class="toolbar-button primary" type="button" @click="searchMaskingRules">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetMaskingRuleSearch">重置</button>
+                        </div>
+                    </div>
+
+                    <div v-if="maskingRuleLoading" class="state-block">
+                        <strong>正在加载脱敏规则</strong>
+                        <p>请稍候，系统正在查询角色与敏感字段的当前策略。</p>
+                    </div>
+
+                    <div v-else-if="maskingRuleError" class="state-block state-danger">
+                        <strong>读取脱敏规则失败</strong>
+                        <p>{{ maskingRuleError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table system-table-wide">
+                            <thead>
+                            <tr>
+                                <th>角色</th>
+                                <th>敏感字段</th>
+                                <th>敏感级别</th>
+                                <th>当前生效策略</th>
+                                <th>策略来源</th>
+                                <th>默认策略</th>
+                                <th>参数</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="maskingRulePage.records.length === 0">
+                                <td colspan="8" class="empty-cell">暂无脱敏规则数据</td>
+                            </tr>
+                            <tr v-for="row in maskingRulePage.records" :key="`masking-rule-${row.roleId}-${row.sensitiveFieldId}`">
+                                <td>
+                                    <strong>{{ row.roleName }}</strong>
+                                    <div class="table-subtext">{{ row.roleCode }}</div>
+                                </td>
+                                <td>
+                                    <strong>{{ row.fieldLabel }}</strong>
+                                    <div class="table-subtext">{{ row.sensitiveType }}</div>
+                                </td>
+                                <td>{{ row.sensitiveLevel || '--' }}</td>
+                                <td>
+                                    <strong>{{ row.effectiveMaskingTypeName || row.effectiveMaskingType || '--' }}</strong>
+                                    <div class="table-subtext">{{ row.effectiveMaskingType || '--' }}</div>
+                                </td>
+                                <td>{{ row.policySource === 'ROLE_ASSIGNMENT' ? '角色指定' : '默认回退' }}</td>
+                                <td>
+                                    <strong>{{ row.defaultMaskingTypeName || row.defaultMaskingType || '--' }}</strong>
+                                    <div class="table-subtext">{{ row.defaultMaskingType || '--' }}</div>
+                                </td>
+                                <td><code class="inline-code">{{ row.effectiveParams || '{}' }}</code></td>
+                                <td class="action-cell">
+                                    <button class="text-button" type="button" @click="openMaskingRuleModal(row)">修改策略</button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-row">
+                        <span>共 {{ maskingRulePage.total }} 条，第 {{ maskingRulePage.page }} / {{ maskingRulePage.totalPages || 1 }} 页</span>
+                        <div class="pagination-actions">
+                            <button class="toolbar-button" type="button" :disabled="maskingRulePage.page <= 1" @click="changeMaskingRulePage(maskingRulePage.page - 1)">上一页</button>
+                            <button class="toolbar-button" type="button" :disabled="maskingRulePage.page >= (maskingRulePage.totalPages || 1)" @click="changeMaskingRulePage(maskingRulePage.page + 1)">下一页</button>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
             <section v-else-if="activeMenu === 'user'" class="page-block">
                 <section class="table-panel">
                     <div class="panel-heading">
@@ -848,6 +940,55 @@
                     {{ passwordSubmitting ? '提交中...' : '保存' }}
                 </button>
                 <button class="toolbar-button" type="button" @click="closePasswordModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showMaskingRuleModal" class="modal-mask" @click.self="closeMaskingRuleModal">
+        <section class="modal-card modal-card-lg">
+            <div class="modal-head">
+                <strong>修改脱敏策略</strong>
+                <button class="modal-close" type="button" @click="closeMaskingRuleModal">×</button>
+            </div>
+            <div class="form-grid">
+                <label class="form-item">
+                    <span>目标角色</span>
+                    <input :value="maskingRuleForm.roleName" class="toolbar-input" type="text" disabled>
+                </label>
+                <label class="form-item">
+                    <span>敏感字段</span>
+                    <input :value="maskingRuleForm.fieldLabel" class="toolbar-input" type="text" disabled>
+                </label>
+                <label class="form-item form-item-wide">
+                    <span>脱敏策略</span>
+                    <select v-model="maskingRuleForm.policyId" class="toolbar-input">
+                        <option value="">请选择脱敏策略</option>
+                        <option v-for="policy in maskingRuleForm.availablePolicies" :key="`mask-policy-${policy.policyId}`" :value="String(policy.policyId)">
+                            {{ policy.maskingTypeName || policy.maskingType }}（{{ policy.maskingType }}）
+                        </option>
+                    </select>
+                </label>
+            </div>
+            <div v-if="selectedMaskingRulePolicy" class="rule-policy-preview">
+                <article class="detail-item">
+                    <span>策略编码</span>
+                    <strong>{{ selectedMaskingRulePolicy.maskingType || '--' }}</strong>
+                </article>
+                <article class="detail-item">
+                    <span>策略名称</span>
+                    <strong>{{ selectedMaskingRulePolicy.maskingTypeName || '--' }}</strong>
+                </article>
+                <article class="detail-item detail-item-wide">
+                    <span>参数</span>
+                    <strong>{{ selectedMaskingRulePolicy.params || '{}' }}</strong>
+                </article>
+            </div>
+            <p v-if="maskingRuleFormError" class="form-error">{{ maskingRuleFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitMaskingRuleForm" :disabled="maskingRuleSubmitting">
+                    {{ maskingRuleSubmitting ? '提交中...' : '保存策略' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closeMaskingRuleModal">取消</button>
             </div>
         </section>
     </div>
