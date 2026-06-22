@@ -261,12 +261,26 @@ BEGIN
     DECLARE v_student_no VARCHAR(30) CHARSET utf8mb4;
     DECLARE v_name VARCHAR(50) CHARSET utf8mb4;
     DECLARE v_class_name VARCHAR(100) CHARSET utf8mb4;
+    DECLARE v_user_exists INT DEFAULT 0;
     DECLARE v_error_message VARCHAR(255) CHARSET utf8mb4;
 
     SET v_role_code = NULLIF(TRIM(CONVERT(p_role_code USING utf8mb4)), '''');
     SET v_student_no = NULLIF(TRIM(CONVERT(p_student_no USING utf8mb4)), '''');
     SET v_name = NULLIF(TRIM(CONVERT(p_name USING utf8mb4)), '''');
     SET v_class_name = NULLIF(TRIM(CONVERT(p_class_name USING utf8mb4)), '''');
+
+    IF p_user_id IS NULL OR p_user_id <= 0 THEN
+        SIGNAL SQLSTATE ''45000'' SET MESSAGE_TEXT = ''用户标识不能为空'';
+    END IF;
+
+    SELECT COUNT(1) INTO v_user_exists
+      FROM user u
+     WHERE u.id = p_user_id
+       AND u.enabled = 1;
+
+    IF v_user_exists = 0 THEN
+        SIGNAL SQLSTATE ''45000'' SET MESSAGE_TEXT = ''当前登录用户不存在或已禁用'';
+    END IF;
 
     IF v_role_code IS NULL THEN
         SIGNAL SQLSTATE ''45000'' SET MESSAGE_TEXT = ''角色编码不能为空'';
@@ -321,12 +335,26 @@ BEGIN
     DECLARE v_student_no VARCHAR(30) CHARSET utf8mb4;
     DECLARE v_course_name VARCHAR(100) CHARSET utf8mb4;
     DECLARE v_semester_name VARCHAR(100) CHARSET utf8mb4;
+    DECLARE v_user_exists INT DEFAULT 0;
     DECLARE v_error_message VARCHAR(255) CHARSET utf8mb4;
 
     SET v_role_code = NULLIF(TRIM(CONVERT(p_role_code USING utf8mb4)), '''');
     SET v_student_no = NULLIF(TRIM(CONVERT(p_student_no USING utf8mb4)), '''');
     SET v_course_name = NULLIF(TRIM(CONVERT(p_course_name USING utf8mb4)), '''');
     SET v_semester_name = NULLIF(TRIM(CONVERT(p_semester_name USING utf8mb4)), '''');
+
+    IF p_user_id IS NULL OR p_user_id <= 0 THEN
+        SIGNAL SQLSTATE ''45000'' SET MESSAGE_TEXT = ''用户标识不能为空'';
+    END IF;
+
+    SELECT COUNT(1) INTO v_user_exists
+      FROM user u
+     WHERE u.id = p_user_id
+       AND u.enabled = 1;
+
+    IF v_user_exists = 0 THEN
+        SIGNAL SQLSTATE ''45000'' SET MESSAGE_TEXT = ''当前登录用户不存在或已禁用'';
+    END IF;
 
     IF v_role_code IS NULL THEN
         SIGNAL SQLSTATE ''45000'' SET MESSAGE_TEXT = ''角色编码不能为空'';

@@ -93,3 +93,19 @@ Authorization: Bearer {{token}}
 ### Query login logs by userName
 GET http://localhost:8081/api/login-logs?page=1&size=10&userName=admin
 Authorization: Bearer {{token}}
+
+### Query masked student profiles
+GET http://localhost:8081/api/student-profiles
+Authorization: Bearer {{token}}
+
+### Query masked student profiles by filters
+GET http://localhost:8081/api/student-profiles?studentNo=2023001&name=张&className=计算机科学2301班
+Authorization: Bearer {{token}}
+
+### Query masked student scores
+GET http://localhost:8081/api/student-scores
+Authorization: Bearer {{token}}
+
+### Query masked student scores by filters
+GET http://localhost:8081/api/student-scores?studentNo=2023001&courseName=数据结构&semesterName=2023秋
+Authorization: Bearer {{token}}

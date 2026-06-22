@@ -4,15 +4,20 @@ import com.cd.dto.CurrentUserResponse;
 import com.cd.dto.LoginResponse;
 import com.cd.dto.PasswordChangeRequest;
 import com.cd.dto.ProfileUpdateRequest;
+import com.cd.dto.StudentSelfProfileResponse;
 import com.cd.dto.UserLoginRequest;
 import com.cd.entity.UserEntity;
+import com.cd.mapper.StudentAdminMapper;
 import com.cd.mapper.UserMapper;
 import com.cd.security.JwtTokenService;
 import com.cd.security.SecurityUser;
 import com.cd.security.SecurityUserService;
 import com.cd.service.AuthService;
+import com.cd.service.RuleChangeLogService;
 import com.cd.util.Md5Utils;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,15 +29,21 @@ public class AuthServiceImpl implements AuthService {
 
     private final SecurityUserService securityUserService;
     private final UserMapper userMapper;
+    private final StudentAdminMapper studentAdminMapper;
+    private final RuleChangeLogService ruleChangeLogService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
 
     public AuthServiceImpl(SecurityUserService securityUserService,
                            UserMapper userMapper,
+                           StudentAdminMapper studentAdminMapper,
+                           RuleChangeLogService ruleChangeLogService,
                            PasswordEncoder passwordEncoder,
                            JwtTokenService jwtTokenService) {
         this.securityUserService = securityUserService;
         this.userMapper = userMapper;
+        this.studentAdminMapper = studentAdminMapper;
+        this.ruleChangeLogService = ruleChangeLogService;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
     }
@@ -74,12 +85,26 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public CurrentUserResponse updateProfile(Long userId, ProfileUpdateRequest request) {
         UserEntity user = requireUser(userId);
-        user.setUserName(request.getUserName().trim());
+        Long linkedStudentId = studentAdminMapper.selectLinkedStudentIdByUserId(userId);
+        Map<String, Object> beforeSnapshot = buildProfileAuditSnapshot(user, studentAdminMapper.selectCurrentStudentProfile(userId));
+        if (linkedStudentId == null) {
+            user.setUserName(request.getUserName().trim());
+        }
         user.setUserHeader(emptyToNull(request.getUserHeader()));
         user.setUserPhonenum(emptyToNull(request.getUserPhonenum()));
         user.setUserEmail(emptyToNull(request.getUserEmail()));
         userMapper.updateById(user);
-        return currentUser(userId);
+        if (linkedStudentId != null) {
+            studentAdminMapper.upsertStudentSensitive(
+                    linkedStudentId,
+                    emptyToNull(request.getUserPhonenum()),
+                    emptyToNull(request.getUserEmail()),
+                    emptyToNull(request.getAddress())
+            );
+        }
+        CurrentUserResponse updated = currentUser(userId);
+        ruleChangeLogService.record(user.getUserName(), "UPDATE_PROFILE", beforeSnapshot, buildProfileAuditSnapshot(updated));
+        return updated;
     }
 
     @Override
@@ -99,6 +124,7 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("新密码不能与旧密码相同");
         }
         userMapper.updatePasswordById(user.getId(), passwordEncoder.encode(request.getNewPassword()));
+        ruleChangeLogService.record(user.getUserName(), "CHANGE_PASSWORD", null, Map.of("passwordChanged", true));
     }
 
     private UserEntity requireUser(Long userId) {
@@ -123,5 +149,29 @@ public class AuthServiceImpl implements AuthService {
 
     private String emptyToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private Map<String, Object> buildProfileAuditSnapshot(UserEntity user, StudentSelfProfileResponse studentProfile) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("userId", user.getId());
+        snapshot.put("userName", user.getUserName());
+        snapshot.put("userHeader", user.getUserHeader());
+        snapshot.put("userPhonenum", user.getUserPhonenum());
+        snapshot.put("userEmail", user.getUserEmail());
+        if (studentProfile != null) {
+            snapshot.put("studentProfile", studentProfile);
+        }
+        return snapshot;
+    }
+
+    private Map<String, Object> buildProfileAuditSnapshot(CurrentUserResponse currentUserResponse) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("userId", currentUserResponse.getId());
+        snapshot.put("userName", currentUserResponse.getUserName());
+        snapshot.put("userHeader", currentUserResponse.getUserHeader());
+        snapshot.put("userPhonenum", currentUserResponse.getUserPhonenum());
+        snapshot.put("userEmail", currentUserResponse.getUserEmail());
+        snapshot.put("studentProfile", currentUserResponse.getStudentProfile());
+        return snapshot;
     }
 }

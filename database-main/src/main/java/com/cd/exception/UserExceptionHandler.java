@@ -49,4 +49,10 @@ public class UserExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Result.error(400, exception.getMessage()));
     }
+
+    @ExceptionHandler(DatabaseRoutineException.class)
+    public ResponseEntity<Result<Void>> handleDatabaseRoutineException(DatabaseRoutineException exception) {
+        return ResponseEntity.status(exception.getStatusCode())
+                .body(Result.error(exception.getStatusCode(), exception.getMessage()));
+    }
 }

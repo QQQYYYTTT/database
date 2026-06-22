@@ -3,11 +3,13 @@ package com.cd.security;
 import com.cd.dto.CurrentUserResponse;
 import com.cd.dto.MenuNodeResponse;
 import com.cd.dto.RoleOptionResponse;
+import com.cd.dto.StudentSelfProfileResponse;
 import com.cd.dto.UserResponse;
 import com.cd.entity.PermissionEntity;
 import com.cd.entity.UserEntity;
 import com.cd.mapper.PermissionMapper;
 import com.cd.mapper.RoleMapper;
+import com.cd.mapper.StudentAdminMapper;
 import com.cd.mapper.UserMapper;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,13 +28,16 @@ public class SecurityUserService implements UserDetailsService {
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
+    private final StudentAdminMapper studentAdminMapper;
 
     public SecurityUserService(UserMapper userMapper,
                                RoleMapper roleMapper,
-                               PermissionMapper permissionMapper) {
+                               PermissionMapper permissionMapper,
+                               StudentAdminMapper studentAdminMapper) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.permissionMapper = permissionMapper;
+        this.studentAdminMapper = studentAdminMapper;
     }
 
     @Override
@@ -76,6 +81,7 @@ public class SecurityUserService implements UserDetailsService {
         response.setCreateAt(user.getCreateAt());
         response.setUpdatedAt(user.getUpdatedAt());
         response.setLastLoginTime(user.getLastLoginTime());
+        response.setStudentProfile(studentAdminMapper.selectCurrentStudentProfile(userId));
         response.setRoles(roles);
         response.setPermissionCodes(permissions.stream()
                 .map(PermissionEntity::getPermissionCode)

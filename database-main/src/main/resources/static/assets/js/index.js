@@ -46,6 +46,22 @@ const menuIcons = {
             <path d="M9.5 16H13" />
         </svg>
     `,
+    team: `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <circle cx="9" cy="8" r="3" />
+            <circle cx="17" cy="9" r="2.5" />
+            <path d="M3.5 19C3.5 15.962 6.186 13.5 9.5 13.5C12.814 13.5 15.5 15.962 15.5 19" />
+            <path d="M15 14.5C17.526 14.899 19.5 16.936 19.5 19.5" />
+        </svg>
+    `,
+    "bar-chart": `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M4 20H20" />
+            <path d="M7 20V11" />
+            <path d="M12 20V7" />
+            <path d="M17 20V14" />
+        </svg>
+    `,
     default: `
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
             <circle cx="12" cy="12" r="8" />
@@ -75,6 +91,13 @@ const pageIcons = {
         </svg>
     `
 };
+
+const ROLE_SUPER_ADMIN = "SUPER_ADMIN";
+const ROLE_DATA_ADMIN = "DATA_ADMIN";
+const ROLE_TEACHER = "TEACHER";
+const ROLE_ANALYST = "ANALYST";
+const ROLE_NORMAL = "NORMAL";
+const ROLE_STUDENT = "STUDENT";
 
 const defaultPageData = () => ({
     records: [],
@@ -211,7 +234,8 @@ createApp({
             userName: "",
             userHeader: "",
             userPhonenum: "",
-            userEmail: ""
+            userEmail: "",
+            address: ""
         });
 
         const passwordSubmitting = ref(false);
@@ -232,6 +256,39 @@ createApp({
             size: 10
         });
 
+        const studentProfileLoading = ref(false);
+        const studentProfileError = ref("");
+        const studentProfiles = ref([]);
+        const selectedStudentProfile = ref(null);
+        const showStudentDetailModal = ref(false);
+        const showStudentEditModal = ref(false);
+        const studentEditSubmitting = ref(false);
+        const studentEditFormError = ref("");
+        const studentProfileQuery = reactive({
+            studentNo: "",
+            name: "",
+            className: ""
+        });
+        const studentEditForm = reactive({
+            studentId: null,
+            studentNo: "",
+            name: "",
+            gender: "M",
+            birthDate: "",
+            phone: "",
+            email: "",
+            address: ""
+        });
+
+        const studentScoreLoading = ref(false);
+        const studentScoreError = ref("");
+        const studentScores = ref([]);
+        const studentScoreQuery = reactive({
+            studentNo: "",
+            courseName: "",
+            semesterName: ""
+        });
+
         const sectionMap = {
             dashboard: {
                 title: "首页概览",
@@ -244,6 +301,18 @@ createApp({
                 headerTitle: "个人信息",
                 description: "查看并维护当前登录用户资料，同时支持单独修改密码。",
                 actionText: "刷新资料"
+            },
+            student: {
+                title: "学生信息脱敏查询",
+                headerTitle: "学生信息",
+                description: "按当前登录角色动态展示学生资料，敏感字段会由数据库脱敏链路自动处理。",
+                actionText: "刷新学生信息"
+            },
+            score: {
+                title: "学生成绩脱敏查询",
+                headerTitle: "学生成绩",
+                description: "按当前登录角色动态展示成绩明细，敏感分数字段会按角色返回不同粒度。",
+                actionText: "刷新成绩信息"
             },
             user: {
                 title: "用户管理",
@@ -260,7 +329,7 @@ createApp({
             permission: {
                 title: "权限管理",
                 headerTitle: "权限管理",
-                description: "统一维护菜单权限和接口权限，驱动动态菜单与接口鉴权。",
+                description: "统一维护中文菜单、权限名称与接口权限，驱动动态菜单和接口鉴权。",
                 actionText: "刷新权限"
             },
             log: {
@@ -284,12 +353,62 @@ createApp({
             actionText: "刷新"
         });
 
+        const resolvedRoleCode = computed(() => {
+            if (currentUser.value.superAdmin) {
+                return ROLE_SUPER_ADMIN;
+            }
+            const roleCodes = (currentUser.value.roles || []).map((role) => role.roleCode);
+            if (roleCodes.includes(ROLE_STUDENT)) {
+                return ROLE_STUDENT;
+            }
+            if (roleCodes.includes(ROLE_DATA_ADMIN)) {
+                return ROLE_DATA_ADMIN;
+            }
+            if (roleCodes.includes(ROLE_TEACHER)) {
+                return ROLE_TEACHER;
+            }
+            if (roleCodes.includes(ROLE_ANALYST)) {
+                return ROLE_ANALYST;
+            }
+            if (roleCodes.includes(ROLE_NORMAL)) {
+                return ROLE_NORMAL;
+            }
+            return roleCodes[0] || ROLE_NORMAL;
+        });
+
+        const isStudentScopeLocked = computed(() => resolvedRoleCode.value === ROLE_STUDENT);
+        const isStudentUser = computed(() => resolvedRoleCode.value === ROLE_STUDENT);
+        const studentAvatarText = computed(() => {
+            const name = currentUser.value.studentProfile?.name || currentUser.value.userName || "";
+            return name ? name.slice(0, 1) : "学";
+        });
+
         const currentRoleText = computed(() => {
             if (currentUser.value.superAdmin) {
                 return "超级管理员";
             }
             const roles = currentUser.value.roles || [];
             return roles.length > 0 ? roles.map((role) => role.roleName).join("、") : "无角色";
+        });
+
+        const maskingHintText = computed(() => {
+            const roleCode = resolvedRoleCode.value;
+            if (roleCode === ROLE_SUPER_ADMIN) {
+                return "当前角色可查看原始敏感数据，结果仍经过统一数据库查询链路返回。";
+            }
+            if (roleCode === ROLE_DATA_ADMIN) {
+                return "当前角色可查看原始敏感数据，用于数据管理和核验场景。";
+            }
+            if (roleCode === ROLE_TEACHER) {
+                return "当前角色按教学场景返回部分脱敏数据，便于识别学生但隐藏高敏字段。";
+            }
+            if (roleCode === ROLE_ANALYST) {
+                return "当前角色按分析场景返回更强脱敏或泛化结果，适合统计分析。";
+            }
+            if (roleCode === ROLE_STUDENT) {
+                return "当前角色仅显示本人数据，后端会忽略会扩大查询范围的筛选条件。";
+            }
+            return "当前角色采用高强度默认脱敏策略，仅返回必要的展示信息。";
         });
 
         const homeStats = computed(() => [
@@ -342,6 +461,26 @@ createApp({
 
         function formatPermissionOption(option) {
             return `${"\u3000".repeat(option.depth)}${option.permissionName}`;
+        }
+
+        function formatGender(value) {
+            if (value === "M") {
+                return "男";
+            }
+            if (value === "F") {
+                return "女";
+            }
+            return value || "--";
+        }
+
+        function formatStudentStatus(value) {
+            if (value === 1) {
+                return "在读";
+            }
+            if (value === 0) {
+                return "停用";
+            }
+            return value ?? "--";
         }
 
         function toggleSidebar() {
@@ -493,6 +632,32 @@ createApp({
             }
         }
 
+        async function loadStudentProfiles() {
+            studentProfileLoading.value = true;
+            studentProfileError.value = "";
+            try {
+                const { result } = await apiRequest(`/api/student-profiles?${buildQuery(studentProfileQuery)}`);
+                studentProfiles.value = result.data || [];
+            } catch (error) {
+                studentProfileError.value = error.message || "读取学生信息失败";
+            } finally {
+                studentProfileLoading.value = false;
+            }
+        }
+
+        async function loadStudentScores() {
+            studentScoreLoading.value = true;
+            studentScoreError.value = "";
+            try {
+                const { result } = await apiRequest(`/api/student-scores?${buildQuery(studentScoreQuery)}`);
+                studentScores.value = result.data || [];
+            } catch (error) {
+                studentScoreError.value = error.message || "读取学生成绩失败";
+            } finally {
+                studentScoreLoading.value = false;
+            }
+        }
+
         async function loadSectionData(menuKey) {
             if (!menuKey) {
                 return;
@@ -503,6 +668,14 @@ createApp({
             }
             if (menuKey === "profile") {
                 await loadCurrentUser();
+                return;
+            }
+            if (menuKey === "student") {
+                await loadStudentProfiles();
+                return;
+            }
+            if (menuKey === "score") {
+                await loadStudentScores();
                 return;
             }
             if (menuKey === "user") {
@@ -550,6 +723,32 @@ createApp({
             }
             userQuery.page = page;
             await loadUsers();
+        }
+
+        async function searchStudentProfiles() {
+            await loadStudentProfiles();
+        }
+
+        async function refreshStudentProfiles() {
+            await loadStudentProfiles();
+        }
+
+        async function resetStudentProfileSearch() {
+            studentProfileQuery.studentNo = "";
+            studentProfileQuery.name = "";
+            studentProfileQuery.className = "";
+            await loadStudentProfiles();
+        }
+
+        async function searchStudentScores() {
+            await loadStudentScores();
+        }
+
+        async function resetStudentScoreSearch() {
+            studentScoreQuery.studentNo = "";
+            studentScoreQuery.courseName = "";
+            studentScoreQuery.semesterName = "";
+            await loadStudentScores();
         }
 
         function resetUserForm() {
@@ -872,8 +1071,9 @@ createApp({
         function resetProfileForm() {
             profileForm.userName = currentUser.value.userName || "";
             profileForm.userHeader = currentUser.value.userHeader || "";
-            profileForm.userPhonenum = currentUser.value.userPhonenum || "";
-            profileForm.userEmail = currentUser.value.userEmail || "";
+            profileForm.userPhonenum = currentUser.value.studentProfile?.phone || currentUser.value.userPhonenum || "";
+            profileForm.userEmail = currentUser.value.studentProfile?.email || currentUser.value.userEmail || "";
+            profileForm.address = currentUser.value.studentProfile?.address || "";
             profileFormError.value = "";
         }
 
@@ -888,7 +1088,7 @@ createApp({
         }
 
         async function submitProfileForm() {
-            if (!profileForm.userName) {
+            if (!isStudentUser.value && !profileForm.userName) {
                 profileFormError.value = "用户名不能为空";
                 return;
             }
@@ -901,10 +1101,11 @@ createApp({
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        userName: profileForm.userName,
+                        userName: isStudentUser.value ? (currentUser.value.userName || "") : profileForm.userName,
                         userHeader: profileForm.userHeader || null,
                         userPhonenum: profileForm.userPhonenum || null,
-                        userEmail: profileForm.userEmail || null
+                        userEmail: profileForm.userEmail || null,
+                        address: profileForm.address || null
                     })
                 });
                 closeProfileModal();
@@ -970,6 +1171,98 @@ createApp({
             }
         }
 
+        function openStudentDetailModal(student) {
+            selectedStudentProfile.value = { ...student };
+            showStudentDetailModal.value = true;
+        }
+
+        function closeStudentDetailModal() {
+            selectedStudentProfile.value = null;
+            showStudentDetailModal.value = false;
+        }
+
+        function resetStudentEditForm() {
+            studentEditForm.studentId = null;
+            studentEditForm.studentNo = "";
+            studentEditForm.name = "";
+            studentEditForm.gender = "M";
+            studentEditForm.birthDate = "";
+            studentEditForm.phone = "";
+            studentEditForm.email = "";
+            studentEditForm.address = "";
+            studentEditFormError.value = "";
+        }
+
+        function openStudentEditModal(student) {
+            studentEditForm.studentId = student.studentId;
+            studentEditForm.studentNo = student.studentNo || "";
+            studentEditForm.name = student.name || "";
+            studentEditForm.gender = student.gender || "M";
+            studentEditForm.birthDate = student.birthDate || "";
+            studentEditForm.phone = student.phone || "";
+            studentEditForm.email = student.email || "";
+            studentEditForm.address = student.address || "";
+            studentEditFormError.value = "";
+            showStudentEditModal.value = true;
+        }
+
+        function closeStudentEditModal() {
+            showStudentEditModal.value = false;
+            resetStudentEditForm();
+        }
+
+        async function submitStudentEditForm() {
+            if (!studentEditForm.studentId) {
+                studentEditFormError.value = "学生信息不完整";
+                return;
+            }
+            if (!studentEditForm.name) {
+                studentEditFormError.value = "姓名不能为空";
+                return;
+            }
+            studentEditSubmitting.value = true;
+            studentEditFormError.value = "";
+            try {
+                await apiRequest(`/api/students/${studentEditForm.studentId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name: studentEditForm.name,
+                        gender: studentEditForm.gender,
+                        birthDate: studentEditForm.birthDate || null,
+                        status: 1,
+                        phone: studentEditForm.phone || null,
+                        email: studentEditForm.email || null,
+                        address: studentEditForm.address || null
+                    })
+                });
+                closeStudentEditModal();
+                await loadStudentProfiles();
+                window.alert("学生信息更新成功");
+            } catch (error) {
+                studentEditFormError.value = error.message || "保存失败";
+            } finally {
+                studentEditSubmitting.value = false;
+            }
+        }
+
+        async function deleteStudent(student) {
+            if (!window.confirm(`确认删除学生「${student.name || student.studentNo}」吗？`)) {
+                return;
+            }
+            try {
+                await apiRequest(`/api/students/${student.studentId}`, {
+                    method: "DELETE"
+                });
+                await loadStudentProfiles();
+                window.alert("学生信息删除成功");
+            } catch (error) {
+                window.alert(error.message || "删除失败");
+            }
+        }
+
         async function searchLogs() {
             logQuery.page = 1;
             await loadLogs();
@@ -1017,6 +1310,11 @@ createApp({
             activeMenu,
             currentSection,
             currentRoleText,
+            resolvedRoleCode,
+            isStudentUser,
+            isStudentScopeLocked,
+            studentAvatarText,
+            maskingHintText,
             flatMenus,
             flattenedPermissionTree,
             parentPermissionOptions,
@@ -1057,10 +1355,26 @@ createApp({
             logError,
             logPage,
             logQuery,
+            studentProfileLoading,
+            studentProfileError,
+            studentProfiles,
+            selectedStudentProfile,
+            showStudentDetailModal,
+            showStudentEditModal,
+            studentEditSubmitting,
+            studentEditFormError,
+            studentProfileQuery,
+            studentEditForm,
+            studentScoreLoading,
+            studentScoreError,
+            studentScores,
+            studentScoreQuery,
             can,
             resolveMenuIcon,
             formatDateTime,
+            formatGender,
             formatRoleNames,
+            formatStudentStatus,
             formatPermissionOption,
             toggleSidebar,
             activateMenu,
@@ -1068,6 +1382,11 @@ createApp({
             searchUsers,
             resetUserSearch,
             changeUserPage,
+            searchStudentProfiles,
+            refreshStudentProfiles,
+            resetStudentProfileSearch,
+            searchStudentScores,
+            resetStudentScoreSearch,
             openCreateUserModal,
             openEditUserModal,
             closeUserModal,
@@ -1094,6 +1413,12 @@ createApp({
             openPasswordModal,
             closePasswordModal,
             submitPasswordForm,
+            openStudentDetailModal,
+            closeStudentDetailModal,
+            openStudentEditModal,
+            closeStudentEditModal,
+            submitStudentEditForm,
+            deleteStudent,
             searchLogs,
             resetLogSearch,
             changeLogPage,

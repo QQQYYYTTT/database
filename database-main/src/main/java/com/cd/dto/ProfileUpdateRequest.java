@@ -20,6 +20,9 @@ public class ProfileUpdateRequest {
     @Size(max = 100, message = "邮箱长度不能超过 100")
     private String userEmail;
 
+    @Size(max = 255, message = "住址长度不能超过 255")
+    private String address;
+
     public String getUserName() {
         return userName;
     }
@@ -50,5 +53,13 @@ public class ProfileUpdateRequest {
 
     public void setUserEmail(String userEmail) {
         this.userEmail = userEmail;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
     }
 }

@@ -15,6 +15,8 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 class DynamicMaskingDatabaseInspectionTest {
 
@@ -26,6 +28,7 @@ class DynamicMaskingDatabaseInspectionTest {
     @Test
     void inspectCurrentMaskingSetup() throws Exception {
         try (Connection connection = openConnection()) {
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema-routines.sql"));
             printObjectPresence(connection);
             printMaskingTableColumns(connection);
             printSensitiveFieldCoverage(connection);
@@ -109,11 +112,17 @@ class DynamicMaskingDatabaseInspectionTest {
 
     private void printStudentProfileSamples(Connection connection) throws SQLException {
         System.out.println("=== student profile samples ===");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(1, 'SUPER_ADMIN', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(5, 'TEACHER', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(6, 'ANALYST', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(8, 'NORMAL', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(1, 'STUDENT', '2023001', NULL, NULL)");
+        long superAdminUserId = findUserIdByUserName(connection, "admin");
+        long teacherUserId = findUserIdByUserName(connection, "mask_teacher");
+        long analystUserId = findUserIdByUserName(connection, "mask_analyst");
+        long normalUserId = findUserIdByUserName(connection, "mask_normal");
+        long studentUserId = findUserIdByUserName(connection, "2023001");
+
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", superAdminUserId, "SUPER_ADMIN", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", analystUserId, "ANALYST", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", normalUserId, "NORMAL", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", studentUserId, "STUDENT", "'2023001'", "NULL", "NULL"));
     }
 
     private void printStudentScoreSamples(Connection connection) throws SQLException {
@@ -122,19 +131,26 @@ class DynamicMaskingDatabaseInspectionTest {
             System.out.println("SP_QUERY_STUDENT_SCORES is missing");
             return;
         }
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENT_SCORES(1, 'SUPER_ADMIN', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENT_SCORES(5, 'TEACHER', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENT_SCORES(6, 'ANALYST', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENT_SCORES(8, 'NORMAL', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENT_SCORES(1, 'STUDENT', '2023001', NULL, NULL)");
+        long superAdminUserId = findUserIdByUserName(connection, "admin");
+        long teacherUserId = findUserIdByUserName(connection, "mask_teacher");
+        long analystUserId = findUserIdByUserName(connection, "mask_analyst");
+        long normalUserId = findUserIdByUserName(connection, "mask_normal");
+        long studentUserId = findUserIdByUserName(connection, "2023001");
+
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", superAdminUserId, "SUPER_ADMIN", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", teacherUserId, "TEACHER", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", analystUserId, "ANALYST", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", normalUserId, "NORMAL", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", studentUserId, "STUDENT", "'2023001'", "NULL", "NULL"));
     }
 
     private void printFilterSamples(Connection connection) throws SQLException {
         System.out.println("=== filter samples ===");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(5, 'TEACHER', '2023001', NULL, NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(5, 'TEACHER', NULL, '张', NULL)");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(5, 'TEACHER', NULL, NULL, '计算机科学2301班')");
-        printProcedureResults(connection, "CALL SP_QUERY_STUDENT_SCORES(5, 'TEACHER', '2023001', '数据结构', '2023秋')");
+        long teacherUserId = findUserIdByUserName(connection, "mask_teacher");
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "'2023001'", "NULL", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "NULL", "'张'", "NULL"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "TEACHER", "NULL", "NULL", "'计算机科学2301班'"));
+        printProcedureResults(connection, procedureSql("SP_QUERY_STUDENT_SCORES", teacherUserId, "TEACHER", "'2023001'", "'数据结构'", "'2023秋'"));
     }
 
     private void printMaskFunctionSamples(Connection connection) throws SQLException {
@@ -175,10 +191,16 @@ class DynamicMaskingDatabaseInspectionTest {
 
     private void printInvalidRoleSample(Connection connection) throws SQLException {
         System.out.println("=== invalid role sample ===");
+        long teacherUserId = findUserIdByUserName(connection, "mask_teacher");
         try {
-            printProcedureResults(connection, "CALL SP_QUERY_STUDENTS(5, 'NOT_EXISTS_ROLE', NULL, NULL, NULL)");
+            printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", teacherUserId, "NOT_EXISTS_ROLE", "NULL", "NULL", "NULL"));
         } catch (SQLException ex) {
             System.out.println("CALL SP_QUERY_STUDENTS invalid role -> " + ex.getMessage());
+        }
+        try {
+            printProcedureResults(connection, procedureSql("SP_QUERY_STUDENTS", 999999L, "TEACHER", "NULL", "NULL", "NULL"));
+        } catch (SQLException ex) {
+            System.out.println("CALL SP_QUERY_STUDENTS invalid user -> " + ex.getMessage());
         }
     }
 
@@ -266,6 +288,27 @@ class DynamicMaskingDatabaseInspectionTest {
             }
             System.out.println(row);
         }
+    }
+
+    private long findUserIdByUserName(Connection connection, String userName) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement("SELECT id FROM `user` WHERE user_name = ? LIMIT 1")) {
+            ps.setString(1, userName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        }
+        throw new SQLException("Test user not found: " + userName);
+    }
+
+    private String procedureSql(String procedureName,
+                                long userId,
+                                String roleCode,
+                                String arg3,
+                                String arg4,
+                                String arg5) {
+        return String.format("CALL %s(%d, '%s', %s, %s, %s)", procedureName, userId, roleCode, arg3, arg4, arg5);
     }
 
     private List<String> parseSqlScript(Path scriptPath) throws IOException {

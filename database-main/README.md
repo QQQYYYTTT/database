@@ -2,12 +2,13 @@
 
 English: `College Student Data Desensitization Management Platform`
 
-这是一个基于 `Spring Boot 3.x + MyBatis XML + Vue` 的前后端一体化项目，当前已包含：
+这是一个基于 `Spring Boot 3.x + MyBatis XML + Vue 3` 的前后端一体化项目，核心目标是演示“数据库动态脱敏 + Spring Boot 安全接入 + 前端按角色展示差异”的完整链路。当前已包含：
 
-- `test` 模块 CRUD 示例
-- `user` 模块真实登录、当前用户、退出登录、分页查询、按用户名搜索、增删改查
-- `login_log` 模块登录日志记录、分页查询、按用户名搜索
-- 基于 Vue 的登录页与后台管理页面
+- 用户登录、JWT 鉴权、当前用户信息、退出登录
+- 用户、角色、权限、登录日志管理
+- 学生信息脱敏查询页
+- 学生成绩脱敏查询页
+- 基于 MySQL 函数与存储过程的动态脱敏实现
 - Spring Boot 静态资源托管，无需额外启动前端服务
 
 ## 技术栈
@@ -15,8 +16,8 @@ English: `College Student Data Desensitization Management Platform`
 - 后端：Spring Boot 3.5.3
 - 持久层：MyBatis 3.0.4
 - 数据库：MySQL 8+
-- 参数校验：Jakarta Validation
-- 前端：Vue 3
+- 安全：Spring Security + JWT
+- 前端：Vue 3（静态页面）
 - 构建：Maven Wrapper
 
 ## 启动方式
@@ -62,300 +63,122 @@ http://localhost:8081/index.html
 
 说明：
 
-- 登录页默认测试数据为 `admin / admin`
 - 登录成功后会将 `token` 保存到 `localStorage`
 - 未登录或登录态失效时访问后台会自动跳转到登录页
-- 后台右上角显示当前登录用户
-- 点击右上角退出登录会调用后端退出接口并清除本地 `token`
-- 左侧菜单支持折叠，折叠后右侧主内容区域会同步左移
+- 后台菜单根据当前角色动态返回
+- 学生信息页和成绩页会按当前角色展示不同脱敏结果
 
 ## 当前后台页面
 
-当前已落地的真实页面：
+当前已落地的页面：
 
 - 后台主页：展示统计信息与最近登录日志
-- 个人信息：展示当前登录用户全部信息，除密码外
+- 个人信息：展示当前登录用户信息、角色、权限编码
+- 学生信息：展示按角色脱敏后的学生资料
+- 学生成绩：展示按角色脱敏后的成绩明细
 - 用户管理：支持分页、按用户名搜索、新增、编辑、删除
-- 系统日志：展示登录日志，支持分页与按用户名搜索
+- 角色管理：支持角色维护与权限分配
+- 权限管理：支持菜单/API 权限维护
+- 登录日志：展示登录日志，支持分页与按用户名搜索
 
-当前保留占位结构但未扩展业务的页面：
+## 动态脱敏链路
 
-- 角色管理
-- 权限管理
-- 学生信息
-
-## 前端静态资源结构
-
-```text
-src/main/resources/static
-├─ index.html
-├─ login.html
-└─ assets
-   ├─ css
-   │  └─ app.css
-   ├─ js
-   │  ├─ index.js
-   │  └─ login.js
-   └─ vendor
-      └─ vue.global.prod.js
-```
-
-## 后端包结构
-
-```text
-src/main/java/com/cd
-├─ common
-│  └─ Result.java
-├─ config
-│  └─ WebConfig.java
-├─ controller
-│  ├─ AuthController.java
-│  ├─ LoginLogController.java
-│  ├─ TestController.java
-│  └─ UserController.java
-├─ dto
-│  ├─ LoginLogResponse.java
-│  ├─ LoginResponse.java
-│  ├─ PageResponse.java
-│  ├─ TestRequest.java
-│  ├─ UserCreateRequest.java
-│  ├─ UserLoginRequest.java
-│  ├─ UserResponse.java
-│  └─ UserUpdateRequest.java
-├─ entity
-│  ├─ LoginLogEntity.java
-│  ├─ TestEntity.java
-│  └─ UserEntity.java
-├─ exception
-│  └─ UserExceptionHandler.java
-├─ interceptor
-│  └─ AuthInterceptor.java
-├─ mapper
-│  ├─ LoginLogMapper.java
-│  ├─ TestMapper.java
-│  └─ UserMapper.java
-├─ service
-│  ├─ AuthTokenService.java
-│  ├─ LoginLogService.java
-│  ├─ TestService.java
-│  └─ UserService.java
-├─ service/impl
-│  ├─ AuthTokenServiceImpl.java
-│  ├─ LoginLogServiceImpl.java
-│  ├─ TestServiceImpl.java
-│  └─ UserServiceImpl.java
-└─ util
-   ├─ Md5Utils.java
-   └─ TokenUtils.java
-```
-
-## 数据库初始化
-
-数据库初始化脚本：
+项目会按以下顺序初始化数据库：
 
 ```text
 src/main/resources/schema.sql
+src/main/resources/schema-routines.sql
+src/main/resources/schema-post-data.sql
 ```
 
-当前会初始化以下数据表：
+其中动态脱敏核心数据库对象包括：
 
-- `test`
-- `user`
-- `login_log`
+- `FN_APPLY_MASK`
+- `FN_MASK_BY_ROLE`
+- `SP_QUERY_STUDENTS`
+- `SP_QUERY_STUDENT_SCORES`
 
-`user` 表字段：
+说明：
 
-- `id`
-- `user_name`
-- `user_pwd`
-- `user_header`
-- `user_phonenum`
-- `user_email`
-- `create_at`
-- `updated_at`
-- `last_login_time`
+- `FN_APPLY_MASK` 负责具体脱敏算法，如全遮蔽、保留前后缀、邮箱脱敏、地址层级脱敏、分数区间泛化等
+- `FN_MASK_BY_ROLE` 根据角色与字段策略选择具体脱敏规则
+- `SP_QUERY_STUDENTS` 统一返回按角色处理后的学生资料
+- `SP_QUERY_STUDENT_SCORES` 统一返回按角色处理后的成绩数据
+- Spring Boot 不接受前端传入角色，实际角色只来自当前登录态
+- `STUDENT` 角色在后端会被收敛为“仅查看本人”
 
-`login_log` 表字段：
+## 动态脱敏接口
 
-- `id`
-- `user_name`
-- `login_status`
-- `login_ip`
-- `login_message`
-- `login_time`
+学生信息接口：
+
+```text
+GET /api/student-profiles
+```
+
+可选查询参数：
+
+- `studentNo`
+- `name`
+- `className`
+
+成绩信息接口：
+
+```text
+GET /api/student-scores
+```
+
+可选查询参数：
+
+- `studentNo`
+- `courseName`
+- `semesterName`
+
+说明：
+
+- 两个接口都需要登录
+- 两个接口都由 Spring Boot 直接调用数据库存储过程
+- 角色无权限时返回 `403`
+- 数据库存储过程返回业务错误时会映射为明确的 4xx 响应
+
+## 示例账号
 
 默认管理员账号：
 
 - 用户名：`admin`
 - 密码：`admin`
 
-注意：
+用于演示不同脱敏效果的账号已经通过初始化脚本写入数据库：
 
-- 数据库存储的是 MD5 加密后的密码
-- 不以明文形式保存密码
+- `mask_teacher`
+- `mask_analyst`
+- `mask_normal`
+- `2023001`（学生账号，对应本人学号）
 
-## 登录接口
+这些账号会在初始化后绑定对应角色，可直接用于前端演示“不同角色看到不同结果”。
 
-接口地址：
+## 接口联调示例
 
-```text
-POST /api/user/login
-```
-
-请求体：
-
-```json
-{
-  "userName": "admin",
-  "userPwd": "admin"
-}
-```
-
-成功响应示例：
-
-```json
-{
-  "code": 200,
-  "message": "登录成功",
-  "data": {
-    "token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "userId": 1,
-    "userName": "admin"
-  }
-}
-```
-
-说明：
-
-- 后端根据 `user_name` 查询用户
-- 使用数据库中的 `user_pwd`（MD5 密文）完成密码校验
-- 登录成功后更新 `last_login_time`
-- 登录成功或失败都会写入 `login_log`
-- 登录成功后生成 token 并在后端内存中保存登录态
-- 前端将 token 保存到 `localStorage`
-
-前端表单校验规则：
-
-- 用户名不能为空
-- 密码不能为空
-
-## 当前用户接口
-
-接口地址：
-
-```text
-GET /api/user/me
-```
-
-请求头：
-
-```text
-Authorization: Bearer {token}
-```
-
-说明：
-
-- 用于获取当前登录用户信息
-- 返回结果不包含 `user_pwd`
-- 个人信息页与右上角当前用户展示都依赖该接口
-
-## 退出登录接口
-
-接口地址：
-
-```text
-POST /api/user/logout
-```
-
-请求头：
-
-```text
-Authorization: Bearer {token}
-```
-
-说明：
-
-- 调用后会移除后端保存的登录态
-- 前端会同步清除本地 token 并跳转回登录页
-
-## 用户管理接口
-
-基础路径：
-
-```text
-http://localhost:8081/api/users
-```
-
-接口列表：
-
-- `GET /api/users?page=1&size=10`
-- `GET /api/users?page=1&size=10&userName=admin`
-- `GET /api/users/{id}`
-- `POST /api/users`
-- `PUT /api/users/{id}`
-- `DELETE /api/users/{id}`
-
-说明：
-
-- 所有接口统一返回 `Result`
-- 查询结果不返回 `user_pwd`
-- `GET /api/users` 支持分页与按用户名模糊搜索
-- 所有 `/api/users/**` 接口都需要登录后访问
-- 修改或删除不存在用户时返回 `404`
-
-分页响应结构示例：
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "records": [],
-    "total": 0,
-    "page": 1,
-    "size": 10,
-    "totalPages": 0
-  }
-}
-```
-
-## 登录日志接口
-
-基础路径：
-
-```text
-http://localhost:8081/api/login-logs
-```
-
-接口列表：
-
-- `GET /api/login-logs?page=1&size=10`
-- `GET /api/login-logs?page=1&size=10&userName=admin`
-
-说明：
-
-- 支持分页
-- 支持按用户名模糊搜索
-- 仅记录登录日志
-- 当前实现会记录成功登录和失败登录
-
-## 接口示例文件
-
-接口联调示例可参考：
+接口联调示例文件：
 
 ```text
 src/main/resources/api-examples.http
 ```
 
-## 已完成的基础验证
+其中已经包含：
+
+- 登录、当前用户、退出登录
+- 用户分页接口
+- 登录日志分页接口
+- 学生信息脱敏查询接口
+- 学生成绩脱敏查询接口
+
+## 已完成的验证
 
 - `.\mvnw.cmd test`
-- 登录接口调用验证
-- 当前用户接口调用验证
-- 退出登录接口调用验证
-- 用户分页查询验证
-- 用户按用户名搜索验证
-- 用户新增、修改、删除验证
-- 登录日志分页与搜索验证
-- 匿名访问受保护接口返回 `401` 验证
-- 登录页与后台页静态资源可访问验证
+- 数据库脱敏函数与存储过程存在性检查
+- `FN_APPLY_MASK` 典型脱敏分支验证
+- `FN_MASK_BY_ROLE` 角色差异与默认回退验证
+- 学生信息/成绩接口按角色返回差异验证
+- `STUDENT` 角色仅查看本人验证
+- 受保护接口 `401 / 403` 验证
+- 前端学生信息页与成绩页联动接口验证

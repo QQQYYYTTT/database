@@ -3,6 +3,7 @@ package com.cd.service.impl;
 import com.cd.dto.RoleOptionResponse;
 import com.cd.dto.StudentProfileMaskedResponse;
 import com.cd.dto.StudentScoreMaskedResponse;
+import com.cd.exception.DatabaseRoutineException;
 import com.cd.security.SecurityUser;
 import com.cd.service.StudentMaskingService;
 import java.sql.CallableStatement;
@@ -85,7 +86,7 @@ public class StudentMaskingServiceImpl implements StudentMaskingService {
             }
             return results;
         } catch (SQLException ex) {
-            throw new IllegalStateException("Failed to query masked student profiles", ex);
+            throw translateSqlException("Failed to query masked student profiles", ex);
         }
     }
 
@@ -133,7 +134,7 @@ public class StudentMaskingServiceImpl implements StudentMaskingService {
             }
             return results;
         } catch (SQLException ex) {
-            throw new IllegalStateException("Failed to query masked student scores", ex);
+            throw translateSqlException("Failed to query masked student scores", ex);
         }
     }
 
@@ -194,5 +195,12 @@ public class StudentMaskingServiceImpl implements StudentMaskingService {
     private Integer getNullableInt(ResultSet rs, String column) throws SQLException {
         int value = rs.getInt(column);
         return rs.wasNull() ? null : value;
+    }
+
+    private DatabaseRoutineException translateSqlException(String fallbackMessage, SQLException ex) {
+        String sqlState = ex.getSQLState();
+        String message = ex.getMessage() == null || ex.getMessage().isBlank() ? fallbackMessage : ex.getMessage();
+        int statusCode = "45000".equals(sqlState) ? HttpStatus.BAD_REQUEST.value() : HttpStatus.INTERNAL_SERVER_ERROR.value();
+        return new DatabaseRoutineException(statusCode, sqlState, message, ex);
     }
 }

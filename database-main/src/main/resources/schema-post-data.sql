@@ -30,12 +30,26 @@ UPDATE grade_info SET grade_name = '2025级' WHERE id = 3;
 UPDATE grade_info SET grade_name = '2026级' WHERE id = 4;
 UPDATE grade_info SET grade_name = '2027级' WHERE id = 5;
 
+UPDATE semester_info SET semester_name = '2023秋' WHERE id = 1;
+UPDATE semester_info SET semester_name = '2024春' WHERE id = 2;
+UPDATE semester_info SET semester_name = '2024秋' WHERE id = 3;
+UPDATE semester_info SET semester_name = '2025春' WHERE id = 4;
+UPDATE semester_info SET semester_name = '2025秋' WHERE id = 5;
+
 UPDATE role SET role_description = '动态脱敏：超级管理员，可查看原始敏感数据' WHERE role_code = 'SUPER_ADMIN';
 UPDATE role SET role_description = '动态脱敏：数据管理员，可查看原始敏感数据' WHERE role_code = 'DATA_ADMIN';
 UPDATE role SET role_description = '动态脱敏：教师，按教学场景部分脱敏' WHERE role_code = 'TEACHER';
 UPDATE role SET role_description = '动态脱敏：分析师，按统计分析场景脱敏/泛化' WHERE role_code = 'ANALYST';
 UPDATE role SET role_description = '动态脱敏：普通用户，使用高强度默认脱敏' WHERE role_code = 'NORMAL';
 UPDATE role SET role_description = '动态脱敏：学生查看本人信息与成绩' WHERE role_code = 'STUDENT';
+UPDATE role SET role_name = '系统管理员' WHERE role_code = 'ADMIN';
+UPDATE role SET role_name = '基础用户' WHERE role_code = 'USER';
+UPDATE role SET role_name = '超级管理员' WHERE role_code = 'SUPER_ADMIN';
+UPDATE role SET role_name = '数据管理员' WHERE role_code = 'DATA_ADMIN';
+UPDATE role SET role_name = '教师' WHERE role_code = 'TEACHER';
+UPDATE role SET role_name = '分析师' WHERE role_code = 'ANALYST';
+UPDATE role SET role_name = '普通访客' WHERE role_code = 'NORMAL';
+UPDATE role SET role_name = '学生' WHERE role_code = 'STUDENT';
 
 UPDATE student SET name = '张伟' WHERE id = 1;
 UPDATE student SET name = '李娜' WHERE id = 2;
@@ -95,6 +109,31 @@ SELECT 'biz:score:view', 'View Student Scores', 'API',
 WHERE NOT EXISTS (
     SELECT 1 FROM permission WHERE permission_code = 'biz:score:view'
 );
+
+UPDATE permission SET permission_name = '首页', description = '首页菜单' WHERE permission_code = 'menu:dashboard';
+UPDATE permission SET permission_name = '个人信息', description = '当前用户个人信息菜单' WHERE permission_code = 'menu:profile';
+UPDATE permission SET permission_name = '用户管理', description = '用户管理菜单' WHERE permission_code = 'menu:user';
+UPDATE permission SET permission_name = '角色管理', description = '角色管理菜单' WHERE permission_code = 'menu:role';
+UPDATE permission SET permission_name = '权限管理', description = '权限管理菜单' WHERE permission_code = 'menu:permission';
+UPDATE permission SET permission_name = '登录日志', description = '登录日志菜单' WHERE permission_code = 'menu:log';
+UPDATE permission SET permission_name = '学生信息', description = '学生脱敏信息菜单' WHERE permission_code = 'menu:student';
+UPDATE permission SET permission_name = '学生成绩', description = '学生脱敏成绩菜单' WHERE permission_code = 'menu:score';
+
+UPDATE permission SET permission_name = '查看用户', description = '查看用户' WHERE permission_code = 'sys:user:view';
+UPDATE permission SET permission_name = '新增用户', description = '创建用户' WHERE permission_code = 'sys:user:create';
+UPDATE permission SET permission_name = '编辑用户', description = '更新用户' WHERE permission_code = 'sys:user:update';
+UPDATE permission SET permission_name = '删除用户', description = '删除用户' WHERE permission_code = 'sys:user:delete';
+UPDATE permission SET permission_name = '查看角色', description = '查看角色' WHERE permission_code = 'sys:role:view';
+UPDATE permission SET permission_name = '新增角色', description = '创建角色' WHERE permission_code = 'sys:role:create';
+UPDATE permission SET permission_name = '编辑角色', description = '更新角色' WHERE permission_code = 'sys:role:update';
+UPDATE permission SET permission_name = '删除角色', description = '删除角色' WHERE permission_code = 'sys:role:delete';
+UPDATE permission SET permission_name = '查看权限', description = '查看权限' WHERE permission_code = 'sys:permission:view';
+UPDATE permission SET permission_name = '新增权限', description = '创建权限' WHERE permission_code = 'sys:permission:create';
+UPDATE permission SET permission_name = '编辑权限', description = '更新权限' WHERE permission_code = 'sys:permission:update';
+UPDATE permission SET permission_name = '删除权限', description = '删除权限' WHERE permission_code = 'sys:permission:delete';
+UPDATE permission SET permission_name = '查看登录日志', description = '查看登录日志' WHERE permission_code = 'sys:log:view';
+UPDATE permission SET permission_name = '查看学生信息', description = '查看脱敏学生信息' WHERE permission_code = 'biz:student:view';
+UPDATE permission SET permission_name = '查看学生成绩', description = '查看脱敏学生成绩' WHERE permission_code = 'biz:score:view';
 
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id

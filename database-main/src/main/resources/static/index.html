@@ -137,7 +137,7 @@
                 <section class="table-panel">
                     <div class="panel-heading">
                         <strong>个人信息</strong>
-                        <span>查看当前登录用户的资料、角色、权限编码以及后端动态返回的菜单树。</span>
+                        <span>{{ isStudentUser ? '查看并维护学生本人的基础资料、联系方式与头像。' : '查看当前登录用户的资料、角色与基础账号信息。' }}</span>
                     </div>
 
                     <div class="toolbar-row">
@@ -147,7 +147,71 @@
                         </div>
                     </div>
 
-                    <div class="detail-grid">
+                    <div v-if="isStudentUser" class="student-profile-card">
+                        <div class="student-profile-hero">
+                            <div class="student-avatar">
+                                <img v-if="currentUser.userHeader" :src="currentUser.userHeader" alt="头像">
+                                <span v-else>{{ studentAvatarText }}</span>
+                            </div>
+                            <div class="student-profile-copy">
+                                <strong>{{ currentUser.studentProfile?.name || currentUser.userName || '--' }}</strong>
+                                <p>{{ currentUser.studentProfile?.studentNo || currentUser.userName || '--' }}</p>
+                                <span>{{ currentRoleText }}</span>
+                            </div>
+                        </div>
+                        <div class="detail-grid detail-grid-student">
+                            <article class="detail-item">
+                                <span>姓名</span>
+                                <strong>{{ currentUser.studentProfile?.name || '--' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>学号</span>
+                                <strong>{{ currentUser.studentProfile?.studentNo || '--' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>性别</span>
+                                <strong>{{ formatGender(currentUser.studentProfile?.gender) }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>出生日期</span>
+                                <strong>{{ currentUser.studentProfile?.birthDate || '--' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>学院</span>
+                                <strong>{{ currentUser.studentProfile?.collegeName || '--' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>专业</span>
+                                <strong>{{ currentUser.studentProfile?.majorName || '--' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>年级</span>
+                                <strong>{{ currentUser.studentProfile?.gradeName || '--' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>班级</span>
+                                <strong>{{ currentUser.studentProfile?.className || '--' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>手机号</span>
+                                <strong>{{ currentUser.studentProfile?.phone || currentUser.userPhonenum || '未设置' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>邮箱</span>
+                                <strong>{{ currentUser.studentProfile?.email || currentUser.userEmail || '未设置' }}</strong>
+                            </article>
+                            <article class="detail-item detail-item-wide">
+                                <span>住址</span>
+                                <strong>{{ currentUser.studentProfile?.address || '未设置' }}</strong>
+                            </article>
+                            <article class="detail-item">
+                                <span>最近登录时间</span>
+                                <strong>{{ formatDateTime(currentUser.lastLoginTime) }}</strong>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div v-else class="detail-grid">
                         <article class="detail-item">
                             <span>用户 ID</span>
                             <strong>{{ currentUser.id || '--' }}</strong>
@@ -182,12 +246,183 @@
                         </article>
                     </div>
 
-                    <div class="panel-subsection">
+                    <div v-if="!isStudentUser" class="panel-subsection">
                         <strong>权限编码</strong>
                         <div class="badge-wrap">
                             <span v-for="code in currentUser.permissionCodes || []" :key="code" class="pill-badge">{{ code }}</span>
                             <span v-if="(currentUser.permissionCodes || []).length === 0" class="empty-text">暂无权限编码</span>
                         </div>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'student'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>学生信息脱敏结果</strong>
+                        <span>当前页面直接调用数据库动态脱敏存储过程，展示当前登录角色可见的学生资料。</span>
+                    </div>
+
+                    <div class="role-hint-card">
+                        <strong>{{ currentRoleText }}</strong>
+                        <p>{{ maskingHintText }}</p>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input
+                                v-model.trim="studentProfileQuery.studentNo"
+                                class="toolbar-input"
+                                type="text"
+                                placeholder="输入学号筛选"
+                                :disabled="isStudentScopeLocked"
+                            >
+                            <input
+                                v-model.trim="studentProfileQuery.name"
+                                class="toolbar-input"
+                                type="text"
+                                placeholder="输入姓名筛选"
+                                :disabled="isStudentScopeLocked"
+                            >
+                            <input
+                                v-model.trim="studentProfileQuery.className"
+                                class="toolbar-input"
+                                type="text"
+                                placeholder="输入班级筛选"
+                                :disabled="isStudentScopeLocked"
+                            >
+                            <button class="toolbar-button primary" type="button" @click="searchStudentProfiles">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetStudentProfileSearch">重置</button>
+                            <button class="toolbar-button" type="button" @click="refreshStudentProfiles">刷新数据</button>
+                        </div>
+                    </div>
+
+                    <div v-if="studentProfileLoading" class="state-block">
+                        <strong>正在加载学生信息</strong>
+                        <p>请稍候，系统正在调用动态脱敏查询链路。</p>
+                    </div>
+
+                    <div v-else-if="studentProfileError" class="state-block state-danger">
+                        <strong>读取学生信息失败</strong>
+                        <p>{{ studentProfileError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>性别</th>
+                                <th>学院</th>
+                                <th>专业</th>
+                                <th>年级</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="studentProfiles.length === 0">
+                                <td colspan="8" class="empty-cell">暂无学生信息</td>
+                            </tr>
+                            <tr v-for="item in studentProfiles" :key="item.studentId">
+                                <td>{{ item.studentId }}</td>
+                                <td>{{ item.studentNo }}</td>
+                                <td>{{ item.name }}</td>
+                                <td>{{ formatGender(item.gender) }}</td>
+                                <td>{{ item.collegeName || '--' }}</td>
+                                <td>{{ item.majorName || '--' }}</td>
+                                <td>{{ item.gradeName || '--' }}</td>
+                                <td class="action-cell">
+                                    <button class="text-button" type="button" @click="openStudentDetailModal(item)">详情</button>
+                                    <button v-if="can('sys:user:update')" class="text-button" type="button" @click="openStudentEditModal(item)">编辑</button>
+                                    <button v-if="can('sys:user:delete')" class="text-button danger" type="button" @click="deleteStudent(item)">删除</button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'score'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>学生成绩脱敏结果</strong>
+                        <span>当前页面直接调用数据库动态脱敏存储过程，展示当前登录角色可见的成绩数据。</span>
+                    </div>
+
+                    <div class="role-hint-card">
+                        <strong>{{ currentRoleText }}</strong>
+                        <p>{{ maskingHintText }}</p>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input
+                                v-model.trim="studentScoreQuery.studentNo"
+                                class="toolbar-input"
+                                type="text"
+                                placeholder="输入学号筛选"
+                                :disabled="isStudentScopeLocked"
+                            >
+                            <input
+                                v-model.trim="studentScoreQuery.courseName"
+                                class="toolbar-input"
+                                type="text"
+                                placeholder="输入课程名筛选"
+                                :disabled="isStudentScopeLocked"
+                            >
+                            <input
+                                v-model.trim="studentScoreQuery.semesterName"
+                                class="toolbar-input"
+                                type="text"
+                                placeholder="输入学期名筛选"
+                                :disabled="isStudentScopeLocked"
+                            >
+                            <button class="toolbar-button primary" type="button" @click="searchStudentScores">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetStudentScoreSearch">重置</button>
+                        </div>
+                    </div>
+
+                    <div v-if="studentScoreLoading" class="state-block">
+                        <strong>正在加载成绩信息</strong>
+                        <p>请稍候，系统正在调用动态脱敏查询链路。</p>
+                    </div>
+
+                    <div v-else-if="studentScoreError" class="state-block state-danger">
+                        <strong>读取成绩信息失败</strong>
+                        <p>{{ studentScoreError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table">
+                            <thead>
+                            <tr>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>课程代码</th>
+                                <th>课程名称</th>
+                                <th>学期</th>
+                                <th>成绩</th>
+                                <th>等级</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="studentScores.length === 0">
+                                <td colspan="7" class="empty-cell">暂无成绩信息</td>
+                            </tr>
+                            <tr v-for="item in studentScores" :key="item.scoreId">
+                                <td>{{ item.studentNo }}</td>
+                                <td>{{ item.studentName }}</td>
+                                <td>{{ item.courseCode }}</td>
+                                <td>{{ item.courseName }}</td>
+                                <td>{{ item.semesterName }}</td>
+                                <td>{{ item.score }}</td>
+                                <td>{{ item.scoreLevel }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
             </section>
@@ -465,9 +700,17 @@
                 <button class="modal-close" type="button" @click="closeProfileModal">×</button>
             </div>
             <div class="form-grid">
-                <label class="form-item">
+                <label v-if="!isStudentUser" class="form-item">
                     <span>用户名</span>
                     <input v-model.trim="profileForm.userName" class="toolbar-input" type="text" placeholder="请输入用户名">
+                </label>
+                <label v-if="isStudentUser" class="form-item">
+                    <span>姓名</span>
+                    <input :value="currentUser.studentProfile?.name || ''" class="toolbar-input" type="text" disabled>
+                </label>
+                <label v-if="isStudentUser" class="form-item">
+                    <span>学号</span>
+                    <input :value="currentUser.studentProfile?.studentNo || ''" class="toolbar-input" type="text" disabled>
                 </label>
                 <label class="form-item">
                     <span>手机号</span>
@@ -476,6 +719,10 @@
                 <label class="form-item">
                     <span>邮箱</span>
                     <input v-model.trim="profileForm.userEmail" class="toolbar-input" type="text" placeholder="请输入邮箱">
+                </label>
+                <label v-if="isStudentUser" class="form-item form-item-wide">
+                    <span>住址</span>
+                    <input v-model.trim="profileForm.address" class="toolbar-input" type="text" placeholder="请输入住址">
                 </label>
                 <label class="form-item form-item-wide">
                     <span>头像地址</span>
@@ -488,6 +735,89 @@
                     {{ profileSubmitting ? '提交中...' : '保存' }}
                 </button>
                 <button class="toolbar-button" type="button" @click="closeProfileModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showStudentDetailModal && selectedStudentProfile" class="modal-mask" @click.self="closeStudentDetailModal">
+        <section class="modal-card modal-card-lg">
+            <div class="modal-head">
+                <strong>学生详情</strong>
+                <button class="modal-close" type="button" @click="closeStudentDetailModal">×</button>
+            </div>
+            <div class="student-detail-head">
+                <div class="student-detail-title">
+                    <strong>{{ selectedStudentProfile.name || '--' }}</strong>
+                    <span>{{ selectedStudentProfile.studentNo || '--' }}</span>
+                </div>
+                <span class="student-detail-tag">{{ selectedStudentProfile.collegeName || '未分配学院' }}</span>
+            </div>
+            <div class="detail-grid detail-grid-student-detail">
+                <article class="detail-item"><span>ID</span><strong>{{ selectedStudentProfile.studentId || '--' }}</strong></article>
+                <article class="detail-item"><span>姓名</span><strong>{{ selectedStudentProfile.name || '--' }}</strong></article>
+                <article class="detail-item"><span>性别</span><strong>{{ formatGender(selectedStudentProfile.gender) }}</strong></article>
+                <article class="detail-item"><span>学号</span><strong>{{ selectedStudentProfile.studentNo || '--' }}</strong></article>
+                <article class="detail-item"><span>出生日期</span><strong>{{ selectedStudentProfile.birthDate || '--' }}</strong></article>
+                <article class="detail-item"><span>状态</span><strong>{{ formatStudentStatus(selectedStudentProfile.status) }}</strong></article>
+                <article class="detail-item"><span>学院</span><strong>{{ selectedStudentProfile.collegeName || '--' }}</strong></article>
+                <article class="detail-item"><span>专业</span><strong>{{ selectedStudentProfile.majorName || '--' }}</strong></article>
+                <article class="detail-item"><span>年级</span><strong>{{ selectedStudentProfile.gradeName || '--' }}</strong></article>
+                <article class="detail-item"><span>班级</span><strong>{{ selectedStudentProfile.className || '--' }}</strong></article>
+                <article class="detail-item"><span>手机号</span><strong>{{ selectedStudentProfile.phone || '--' }}</strong></article>
+                <article class="detail-item"><span>邮箱</span><strong>{{ selectedStudentProfile.email || '--' }}</strong></article>
+                <article class="detail-item detail-item-wide"><span>住址</span><strong>{{ selectedStudentProfile.address || '--' }}</strong></article>
+                <article class="detail-item"><span>身份证号</span><strong>{{ selectedStudentProfile.idCard || '--' }}</strong></article>
+                <article class="detail-item"><span>家庭收入</span><strong>{{ selectedStudentProfile.familyIncome || '--' }}</strong></article>
+                <article class="detail-item detail-item-wide"><span>银行卡号</span><strong>{{ selectedStudentProfile.bankCard || '--' }}</strong></article>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showStudentEditModal" class="modal-mask" @click.self="closeStudentEditModal">
+        <section class="modal-card modal-card-lg">
+            <div class="modal-head">
+                <strong>编辑学生信息</strong>
+                <button class="modal-close" type="button" @click="closeStudentEditModal">×</button>
+            </div>
+            <div class="form-grid">
+                <label class="form-item">
+                    <span>姓名</span>
+                    <input v-model.trim="studentEditForm.name" class="toolbar-input" type="text" placeholder="请输入姓名">
+                </label>
+                <label class="form-item">
+                    <span>学号</span>
+                    <input :value="studentEditForm.studentNo" class="toolbar-input" type="text" disabled>
+                </label>
+                <label class="form-item">
+                    <span>性别</span>
+                    <select v-model="studentEditForm.gender" class="toolbar-input">
+                        <option value="M">男</option>
+                        <option value="F">女</option>
+                    </select>
+                </label>
+                <label class="form-item">
+                    <span>出生日期</span>
+                    <input v-model.trim="studentEditForm.birthDate" class="toolbar-input" type="date">
+                </label>
+                <label class="form-item">
+                    <span>手机号</span>
+                    <input v-model.trim="studentEditForm.phone" class="toolbar-input" type="text" placeholder="请输入手机号">
+                </label>
+                <label class="form-item">
+                    <span>邮箱</span>
+                    <input v-model.trim="studentEditForm.email" class="toolbar-input" type="text" placeholder="请输入邮箱">
+                </label>
+                <label class="form-item form-item-wide">
+                    <span>住址</span>
+                    <input v-model.trim="studentEditForm.address" class="toolbar-input" type="text" placeholder="请输入住址">
+                </label>
+            </div>
+            <p v-if="studentEditFormError" class="form-error">{{ studentEditFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitStudentEditForm" :disabled="studentEditSubmitting">
+                    {{ studentEditSubmitting ? '提交中...' : '保存' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closeStudentEditModal">取消</button>
             </div>
         </section>
     </div>

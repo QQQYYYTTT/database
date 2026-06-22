@@ -1,6 +1,4 @@
 spring:
-  application:
-    name: stu-info-api
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/stu_info2026?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
     username: root
@@ -9,7 +7,7 @@ spring:
   sql:
     init:
       encoding: UTF-8
-      mode: never
+      mode: always
       schema-locations: classpath:schema.sql,classpath:schema-routines.sql,classpath:schema-post-data.sql
 
 mybatis:
@@ -17,9 +15,6 @@ mybatis:
   type-aliases-package: com.cd.entity
   configuration:
     map-underscore-to-camel-case: true
-
-server:
-  port: 8081
 
 jwt:
   secret: stu-info-2026-security-jwt-secret-key-for-spring-security

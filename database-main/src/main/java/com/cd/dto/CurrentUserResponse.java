@@ -15,6 +15,7 @@ public class CurrentUserResponse {
     private LocalDateTime createAt;
     private LocalDateTime updatedAt;
     private LocalDateTime lastLoginTime;
+    private StudentSelfProfileResponse studentProfile;
     private List<RoleOptionResponse> roles = new ArrayList<>();
     private List<String> permissionCodes = new ArrayList<>();
     private List<MenuNodeResponse> menuTree = new ArrayList<>();
@@ -89,6 +90,14 @@ public class CurrentUserResponse {
 
     public void setLastLoginTime(LocalDateTime lastLoginTime) {
         this.lastLoginTime = lastLoginTime;
+    }
+
+    public StudentSelfProfileResponse getStudentProfile() {
+        return studentProfile;
+    }
+
+    public void setStudentProfile(StudentSelfProfileResponse studentProfile) {
+        this.studentProfile = studentProfile;
     }
 
     public List<RoleOptionResponse> getRoles() {
