@@ -6,13 +6,22 @@ import com.cd.dto.MaskingRuleUpdateRequest;
 import com.cd.dto.MaskingRuleViewResponse;
 import com.cd.dto.PageResponse;
 import com.cd.entity.RoleEntity;
+import com.cd.exception.DatabaseRoutineException;
 import com.cd.mapper.MaskingRuleMapper;
 import com.cd.mapper.RoleMapper;
+import com.cd.security.SecurityUser;
+import com.cd.security.SecurityUtils;
 import com.cd.service.MaskingRuleService;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import javax.sql.DataSource;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,10 +36,14 @@ public class MaskingRuleServiceImpl implements MaskingRuleService {
 
     private final MaskingRuleMapper maskingRuleMapper;
     private final RoleMapper roleMapper;
+    private final DataSource dataSource;
 
-    public MaskingRuleServiceImpl(MaskingRuleMapper maskingRuleMapper, RoleMapper roleMapper) {
+    public MaskingRuleServiceImpl(MaskingRuleMapper maskingRuleMapper,
+                                  RoleMapper roleMapper,
+                                  DataSource dataSource) {
         this.maskingRuleMapper = maskingRuleMapper;
         this.roleMapper = roleMapper;
+        this.dataSource = dataSource;
     }
 
     @Override
@@ -91,12 +104,22 @@ public class MaskingRuleServiceImpl implements MaskingRuleService {
             throw new IllegalArgumentException("所选脱敏策略与目标敏感字段不匹配");
         }
 
-        maskingRuleMapper.disableAssignmentsByRoleAndField(request.getRoleId(), request.getSensitiveFieldId());
-        Long existingAssignmentId = maskingRuleMapper.selectAssignmentIdByRoleAndPolicy(request.getRoleId(), request.getPolicyId());
-        if (existingAssignmentId != null) {
-            maskingRuleMapper.updateAssignmentEnabled(existingAssignmentId, true);
-        } else {
-            maskingRuleMapper.insertAssignment(request.getRoleId(), request.getPolicyId(), true);
+        SecurityUser currentUser = SecurityUtils.currentUser();
+        String sql = "{CALL SP_UPDATE_MASKING_RULE(?, ?, ?, ?)}";
+        try (Connection connection = dataSource.getConnection();
+             CallableStatement statement = connection.prepareCall(sql)) {
+            if (currentUser == null || currentUser.getUserId() == null) {
+                statement.setNull(1, Types.BIGINT);
+                statement.setString(2, "system");
+            } else {
+                statement.setLong(1, currentUser.getUserId());
+                statement.setString(2, currentUser.getUsername());
+            }
+            statement.setLong(3, request.getRoleId());
+            statement.setLong(4, request.getPolicyId());
+            statement.execute();
+        } catch (SQLException ex) {
+            throw translateSqlException("Failed to update masking rule", ex);
         }
     }
 
@@ -120,5 +143,14 @@ public class MaskingRuleServiceImpl implements MaskingRuleService {
             return DEFAULT_SIZE;
         }
         return Math.min(size, MAX_SIZE);
+    }
+
+    private DatabaseRoutineException translateSqlException(String fallbackMessage, SQLException ex) {
+        String sqlState = ex.getSQLState();
+        String message = ex.getMessage() == null || ex.getMessage().isBlank() ? fallbackMessage : ex.getMessage();
+        int statusCode = "45000".equals(sqlState)
+                ? HttpStatus.BAD_REQUEST.value()
+                : HttpStatus.INTERNAL_SERVER_ERROR.value();
+        return new DatabaseRoutineException(statusCode, sqlState, message, ex);
     }
 }

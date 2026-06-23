@@ -21,8 +21,12 @@ DROP TABLE IF EXISTS `abnormal_access`;
 CREATE TABLE `abnormal_access` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) DEFAULT NULL,
+  `rule_name` varchar(100) DEFAULT NULL,
   `abnormal_type` varchar(50) DEFAULT NULL,
   `severity` varchar(20) DEFAULT NULL,
+  `trigger_count` int(11) DEFAULT NULL,
+  `window_start` datetime DEFAULT NULL,
+  `window_end` datetime DEFAULT NULL,
   `detail` text DEFAULT NULL,
   `create_time` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`id`) USING BTREE

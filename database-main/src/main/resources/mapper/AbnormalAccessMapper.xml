@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cd.mapper.AbnormalAccessMapper">
+
+    <resultMap id="AbnormalAccessResponseResultMap" type="com.cd.dto.AbnormalAccessResponse">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userName" column="user_name"/>
+        <result property="ruleName" column="rule_name"/>
+        <result property="abnormalType" column="abnormal_type"/>
+        <result property="severity" column="severity"/>
+        <result property="triggerCount" column="trigger_count"/>
+        <result property="windowStart" column="window_start"/>
+        <result property="windowEnd" column="window_end"/>
+        <result property="detail" column="detail"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="AbnormalAccessQueryCondition">
+        <if test="userName != null and userName != ''">
+            AND u.user_name LIKE CONCAT('%', #{userName}, '%')
+        </if>
+        <if test="ruleName != null and ruleName != ''">
+            AND aa.rule_name = #{ruleName}
+        </if>
+        <if test="severity != null and severity != ''">
+            AND aa.severity = #{severity}
+        </if>
+    </sql>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(1)
+        FROM abnormal_access aa
+        LEFT JOIN user u ON u.id = aa.user_id
+        <where>
+            <include refid="AbnormalAccessQueryCondition"/>
+        </where>
+    </select>
+
+    <select id="selectPage" resultMap="AbnormalAccessResponseResultMap">
+        SELECT
+            aa.id,
+            aa.user_id,
+            u.user_name,
+            aa.rule_name,
+            aa.abnormal_type,
+            aa.severity,
+            aa.trigger_count,
+            aa.window_start,
+            aa.window_end,
+            aa.detail,
+            aa.create_time
+        FROM abnormal_access aa
+        LEFT JOIN user u ON u.id = aa.user_id
+        <where>
+            <include refid="AbnormalAccessQueryCondition"/>
+        </where>
+        ORDER BY aa.id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+</mapper>

@@ -51,6 +51,7 @@ class StudentMaskingApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        restoreTeacherPhoneRule();
         teacherToken = tokenFor("mask_teacher");
         analystToken = tokenFor("mask_analyst");
         normalToken = tokenFor("mask_normal");
@@ -61,6 +62,7 @@ class StudentMaskingApiIntegrationTest {
 
     @Test
     void studentProfilesShouldReturnDifferentMaskingByRole() throws Exception {
+        clearAuditLogs();
         JsonNode superAdminRow = firstDataRow(mockMvc.perform(
                         get("/api/student-profiles")
                                 .header("Authorization", bearer(superAdminToken))
@@ -107,6 +109,7 @@ class StudentMaskingApiIntegrationTest {
 
     @Test
     void studentScoresShouldReturnDifferentMaskingByRole() throws Exception {
+        clearAuditLogs();
         JsonNode teacherRow = firstDataRow(mockMvc.perform(
                         get("/api/student-scores")
                                 .header("Authorization", bearer(teacherToken))
@@ -242,6 +245,7 @@ class StudentMaskingApiIntegrationTest {
 
     @Test
     void updatingMaskingRuleShouldTakeEffectImmediately() throws Exception {
+        clearAuditLogs();
         JsonNode before = firstDataRow(mockMvc.perform(
                         get("/api/student-profiles")
                                 .header("Authorization", bearer(teacherToken))
@@ -289,6 +293,179 @@ class StudentMaskingApiIntegrationTest {
                                             {"roleId":5,"sensitiveFieldId":3,"policyId":%d}
                                             """.formatted(originalPolicyId)))
                     .andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void queryingStudentProfilesShouldCreateAccessLog() throws Exception {
+        clearAuditLogs();
+
+        mockMvc.perform(
+                        get("/api/student-profiles")
+                                .header("Authorization", bearer(teacherToken))
+                                .param("studentNo", "2023001"))
+                .andExpect(status().isOk());
+
+        JsonNode root = readBody(mockMvc.perform(
+                        get("/api/access-logs")
+                                .header("Authorization", bearer(superAdminToken))
+                                .param("operationType", "QUERY_STUDENT_PROFILE")
+                                .param("page", "1")
+                                .param("size", "10"))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode records = root.path("data").path("records");
+        assertFalse(records.isEmpty());
+        assertEquals("QUERY_STUDENT_PROFILE", records.get(0).path("operationType").asText());
+        assertEquals("v_student_profile", records.get(0).path("tableName").asText());
+    }
+
+    @Test
+    void queryingStudentScoresShouldCreateAccessLog() throws Exception {
+        clearAuditLogs();
+
+        mockMvc.perform(
+                        get("/api/student-scores")
+                                .header("Authorization", bearer(teacherToken))
+                                .param("studentNo", "2023001"))
+                .andExpect(status().isOk());
+
+        JsonNode root = readBody(mockMvc.perform(
+                        get("/api/access-logs")
+                                .header("Authorization", bearer(superAdminToken))
+                                .param("operationType", "QUERY_STUDENT_SCORE")
+                                .param("page", "1")
+                                .param("size", "10"))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode records = root.path("data").path("records");
+        assertFalse(records.isEmpty());
+        assertEquals("QUERY_STUDENT_SCORE", records.get(0).path("operationType").asText());
+        assertEquals("v_student_score_detail", records.get(0).path("tableName").asText());
+    }
+
+    @Test
+    void updatingMaskingRuleShouldCreateRuleChangeLog() throws Exception {
+        clearAuditLogs();
+
+        JsonNode ruleList = readBody(mockMvc.perform(
+                        get("/api/masking-rules")
+                                .header("Authorization", bearer(superAdminToken))
+                                .param("roleId", "5")
+                                .param("sensitiveFieldId", "3")
+                                .param("page", "1")
+                                .param("size", "10"))
+                .andExpect(status().isOk())
+                .andReturn());
+        Long originalPolicyId = ruleList.path("data").path("records").get(0).path("effectivePolicyId").asLong();
+
+        try {
+            mockMvc.perform(
+                            put("/api/masking-rules")
+                                    .header("Authorization", bearer(superAdminToken))
+                                    .contentType("application/json")
+                                    .content("""
+                                            {"roleId":5,"sensitiveFieldId":3,"policyId":7}
+                                            """))
+                    .andExpect(status().isOk());
+
+            JsonNode root = readBody(mockMvc.perform(
+                            get("/api/rule-change-logs")
+                                    .header("Authorization", bearer(superAdminToken))
+                                    .param("page", "1")
+                                    .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andReturn());
+
+            JsonNode records = root.path("data").path("records");
+            assertFalse(records.isEmpty());
+            assertTrue(records.get(0).path("operationType").asText().startsWith("MASKING_RULE_"));
+            assertTrue(records.get(0).path("afterContent").asText().contains("\"policyId\":\"7\"")
+                    || records.get(0).path("afterContent").asText().contains("\"policyId\":7"));
+        } finally {
+            mockMvc.perform(
+                            put("/api/masking-rules")
+                                    .header("Authorization", bearer(superAdminToken))
+                                    .contentType("application/json")
+                                    .content("""
+                                            {"roleId":5,"sensitiveFieldId":3,"policyId":%d}
+                                            """.formatted(originalPolicyId)))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void detectingAbnormalAccessShouldCreateAbnormalAccessLog() throws Exception {
+        clearAuditLogs();
+
+        for (int i = 0; i < 6; i++) {
+            mockMvc.perform(
+                            get("/api/student-profiles")
+                                    .header("Authorization", bearer(normalToken))
+                                    .param("studentNo", "2023001"))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/abnormal-access/detect")
+                                .header("Authorization", bearer(superAdminToken)))
+                .andExpect(status().isOk());
+
+        JsonNode root = readBody(mockMvc.perform(
+                        get("/api/abnormal-access")
+                                .header("Authorization", bearer(superAdminToken))
+                                .param("page", "1")
+                                .param("size", "20"))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode records = root.path("data").path("records");
+        assertFalse(records.isEmpty());
+
+        boolean matched = false;
+        for (JsonNode record : records) {
+            if ("SHORT_TIME_HIGH_FREQ".equals(record.path("ruleName").asText())
+                    && "mask_normal".equals(record.path("userName").asText())) {
+                matched = true;
+                assertTrue(record.path("triggerCount").asInt() >= 6);
+                break;
+            }
+        }
+        assertTrue(matched);
+    }
+
+    private void clearAuditLogs() throws Exception {
+        try (var connection = dataSource.getConnection();
+             var clearAccess = connection.prepareStatement("DELETE FROM access_log");
+             var clearRuleChange = connection.prepareStatement("DELETE FROM rule_change_log");
+             var clearAbnormal = connection.prepareStatement("DELETE FROM abnormal_access")) {
+            clearAccess.executeUpdate();
+            clearRuleChange.executeUpdate();
+            clearAbnormal.executeUpdate();
+        }
+    }
+
+    private void restoreTeacherPhoneRule() {
+        try (var connection = dataSource.getConnection();
+             var disableAll = connection.prepareStatement("""
+                     UPDATE masking_rule_assignment mra
+                     JOIN masking_policy mp ON mp.id = mra.policy_id
+                     SET mra.enabled = 0
+                     WHERE mra.role_id = 5
+                       AND mp.sensitive_field_id = 3
+                     """);
+             var enableBaseline = connection.prepareStatement("""
+                     UPDATE masking_rule_assignment
+                     SET enabled = 1
+                     WHERE role_id = 5
+                       AND policy_id = 9
+                     """)) {
+            disableAll.executeUpdate();
+            enableBaseline.executeUpdate();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to restore teacher phone masking rule", ex);
         }
     }
 

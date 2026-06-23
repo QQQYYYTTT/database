@@ -298,3 +298,11 @@ SELECT u.id, r.id
         WHERE ur.user_id = u.id
           AND ur.role_id = r.id
    );
+
+UPDATE permission SET permission_name = '访问日志', description = '查看敏感数据访问日志' WHERE permission_code = 'menu:access-log';
+UPDATE permission SET permission_name = '规则变更日志', description = '查看脱敏规则变更日志' WHERE permission_code = 'menu:rule-change-log';
+UPDATE permission SET permission_name = '异常访问监控', description = '查看异常访问监控结果' WHERE permission_code = 'menu:abnormal-access';
+UPDATE permission SET permission_name = '查看访问日志', description = '查看访问日志' WHERE permission_code = 'sys:access-log:view';
+UPDATE permission SET permission_name = '查看规则变更日志', description = '查看规则变更日志' WHERE permission_code = 'sys:rule-change-log:view';
+UPDATE permission SET permission_name = '查看异常访问', description = '查看异常访问记录' WHERE permission_code = 'sys:abnormal-access:view';
+UPDATE permission SET permission_name = '执行异常检测', description = '执行异常访问检测' WHERE permission_code = 'sys:abnormal-access:detect';

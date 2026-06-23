@@ -794,6 +794,231 @@
                     </div>
                 </section>
             </section>
+
+            <section v-else-if="activeMenu === 'access-log'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>访问日志</strong>
+                        <span>查看学生信息与成绩查询时自动产生的访问审计记录。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input v-model.trim="accessLogQuery.userName" class="toolbar-input" type="text" placeholder="按用户筛选">
+                            <input v-model.trim="accessLogQuery.roleCode" class="toolbar-input" type="text" placeholder="按角色筛选">
+                            <select v-model="accessLogQuery.operationType" class="toolbar-input">
+                                <option value="">全部操作</option>
+                                <option value="QUERY_STUDENT_PROFILE">QUERY_STUDENT_PROFILE</option>
+                                <option value="QUERY_STUDENT_SCORE">QUERY_STUDENT_SCORE</option>
+                            </select>
+                            <button class="toolbar-button primary" type="button" @click="searchAccessLogs">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetAccessLogSearch">重置</button>
+                        </div>
+                    </div>
+
+                    <div v-if="accessLogLoading" class="state-block">
+                        <strong>正在加载访问日志</strong>
+                        <p>请稍候，系统正在读取访问审计记录。</p>
+                    </div>
+
+                    <div v-else-if="accessLogError" class="state-block state-danger">
+                        <strong>读取访问日志失败</strong>
+                        <p>{{ accessLogError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table system-table-wide">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户</th>
+                                <th>角色</th>
+                                <th>操作</th>
+                                <th>对象</th>
+                                <th>敏感列</th>
+                                <th>已脱敏</th>
+                                <th>访问时间</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="accessLogPage.records.length === 0">
+                                <td colspan="8" class="empty-cell">暂无访问日志</td>
+                            </tr>
+                            <tr v-for="item in accessLogPage.records" :key="item.id">
+                                <td>{{ item.id }}</td>
+                                <td>
+                                    <strong>{{ item.userName || '--' }}</strong>
+                                    <div class="table-subtext">ID {{ item.userId || '--' }}</div>
+                                </td>
+                                <td>{{ item.roleCode || '--' }}</td>
+                                <td>{{ item.operationType || '--' }}</td>
+                                <td>{{ item.tableName || '--' }}</td>
+                                <td><code class="inline-code">{{ item.sensitiveColumns || '--' }}</code></td>
+                                <td>{{ item.maskingApplied ? '是' : '否' }}</td>
+                                <td>{{ formatDateTime(item.accessTime) }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-row">
+                        <span>共 {{ accessLogPage.total }} 条，第 {{ accessLogPage.page }} / {{ accessLogPage.totalPages || 1 }} 页</span>
+                        <div class="pagination-actions">
+                            <button class="toolbar-button" type="button" :disabled="accessLogPage.page <= 1" @click="changeAccessLogPage(accessLogPage.page - 1)">上一页</button>
+                            <button class="toolbar-button" type="button" :disabled="accessLogPage.page >= (accessLogPage.totalPages || 1)" @click="changeAccessLogPage(accessLogPage.page + 1)">下一页</button>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'rule-change-log'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>规则变更日志</strong>
+                        <span>查看脱敏规则修改后自动产生的规则审计记录。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input v-model.trim="ruleChangeLogQuery.operatorName" class="toolbar-input" type="text" placeholder="按操作人筛选">
+                            <button class="toolbar-button primary" type="button" @click="searchRuleChangeLogs">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetRuleChangeLogSearch">重置</button>
+                        </div>
+                    </div>
+
+                    <div v-if="ruleChangeLogLoading" class="state-block">
+                        <strong>正在加载规则变更日志</strong>
+                        <p>请稍候，系统正在读取规则变更记录。</p>
+                    </div>
+
+                    <div v-else-if="ruleChangeLogError" class="state-block state-danger">
+                        <strong>读取规则变更日志失败</strong>
+                        <p>{{ ruleChangeLogError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table system-table-wide">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>操作人</th>
+                                <th>操作类型</th>
+                                <th>策略 ID</th>
+                                <th>修改前</th>
+                                <th>修改后</th>
+                                <th>操作时间</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="ruleChangeLogPage.records.length === 0">
+                                <td colspan="7" class="empty-cell">暂无规则变更日志</td>
+                            </tr>
+                            <tr v-for="item in ruleChangeLogPage.records" :key="item.id">
+                                <td>{{ item.id }}</td>
+                                <td>{{ item.operatorName || '--' }}</td>
+                                <td>{{ item.operationType || '--' }}</td>
+                                <td>{{ item.policyId || '--' }}</td>
+                                <td><code class="inline-code">{{ item.beforeContent || '--' }}</code></td>
+                                <td><code class="inline-code">{{ item.afterContent || '--' }}</code></td>
+                                <td>{{ formatDateTime(item.operateTime) }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-row">
+                        <span>共 {{ ruleChangeLogPage.total }} 条，第 {{ ruleChangeLogPage.page }} / {{ ruleChangeLogPage.totalPages || 1 }} 页</span>
+                        <div class="pagination-actions">
+                            <button class="toolbar-button" type="button" :disabled="ruleChangeLogPage.page <= 1" @click="changeRuleChangeLogPage(ruleChangeLogPage.page - 1)">上一页</button>
+                            <button class="toolbar-button" type="button" :disabled="ruleChangeLogPage.page >= (ruleChangeLogPage.totalPages || 1)" @click="changeRuleChangeLogPage(ruleChangeLogPage.page + 1)">下一页</button>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'abnormal-access'" class="page-block">
+                <section class="table-panel">
+                    <div class="panel-heading">
+                        <strong>异常访问监控</strong>
+                        <span>基于访问日志执行数据库侧检测，识别高频查询、单日大量访问和普通用户异常访问。</span>
+                    </div>
+
+                    <div class="toolbar-row">
+                        <div class="toolbar-inline">
+                            <input v-model.trim="abnormalAccessQuery.userName" class="toolbar-input" type="text" placeholder="按用户筛选">
+                            <select v-model="abnormalAccessQuery.ruleName" class="toolbar-input">
+                                <option value="">全部规则</option>
+                                <option value="SHORT_TIME_HIGH_FREQ">SHORT_TIME_HIGH_FREQ</option>
+                                <option value="DAILY_SENSITIVE_ACCESS">DAILY_SENSITIVE_ACCESS</option>
+                                <option value="NORMAL_USER_VOLUME">NORMAL_USER_VOLUME</option>
+                            </select>
+                            <select v-model="abnormalAccessQuery.severity" class="toolbar-input">
+                                <option value="">全部等级</option>
+                                <option value="MEDIUM">MEDIUM</option>
+                                <option value="HIGH">HIGH</option>
+                            </select>
+                            <button class="toolbar-button primary" type="button" @click="searchAbnormalAccess">查询</button>
+                            <button class="toolbar-button" type="button" @click="resetAbnormalAccessSearch">重置</button>
+                            <button v-if="can('sys:abnormal-access:detect')" class="toolbar-button" type="button" @click="runAbnormalAccessDetection">执行检测</button>
+                        </div>
+                    </div>
+
+                    <div v-if="abnormalAccessLoading" class="state-block">
+                        <strong>正在加载异常访问记录</strong>
+                        <p>请稍候，系统正在读取异常访问检测结果。</p>
+                    </div>
+
+                    <div v-else-if="abnormalAccessError" class="state-block state-danger">
+                        <strong>读取异常访问记录失败</strong>
+                        <p>{{ abnormalAccessError }}</p>
+                    </div>
+
+                    <div v-else class="table-scroll">
+                        <table class="system-table system-table-wide">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户</th>
+                                <th>规则</th>
+                                <th>类型</th>
+                                <th>等级</th>
+                                <th>次数</th>
+                                <th>窗口</th>
+                                <th>明细</th>
+                                <th>检测时间</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="abnormalAccessPage.records.length === 0">
+                                <td colspan="9" class="empty-cell">暂无异常访问记录</td>
+                            </tr>
+                            <tr v-for="item in abnormalAccessPage.records" :key="item.id">
+                                <td>{{ item.id }}</td>
+                                <td>
+                                    <strong>{{ item.userName || '--' }}</strong>
+                                    <div class="table-subtext">ID {{ item.userId || '--' }}</div>
+                                </td>
+                                <td>{{ item.ruleName || '--' }}</td>
+                                <td>{{ item.abnormalType || '--' }}</td>
+                                <td>{{ item.severity || '--' }}</td>
+                                <td>{{ item.triggerCount || 0 }}</td>
+                                <td>{{ formatDateTime(item.windowStart) }} ~ {{ formatDateTime(item.windowEnd) }}</td>
+                                <td><code class="inline-code">{{ item.detail || '--' }}</code></td>
+                                <td>{{ formatDateTime(item.createTime) }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-row">
+                        <span>共 {{ abnormalAccessPage.total }} 条，第 {{ abnormalAccessPage.page }} / {{ abnormalAccessPage.totalPages || 1 }} 页</span>
+                        <div class="pagination-actions">
+                            <button class="toolbar-button" type="button" :disabled="abnormalAccessPage.page <= 1" @click="changeAbnormalAccessPage(abnormalAccessPage.page - 1)">上一页</button>
+                            <button class="toolbar-button" type="button" :disabled="abnormalAccessPage.page >= (abnormalAccessPage.totalPages || 1)" @click="changeAbnormalAccessPage(abnormalAccessPage.page + 1)">下一页</button>
+                        </div>
+                    </div>
+                </section>
+            </section>
         </main>
     </div>
 

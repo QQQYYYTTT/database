@@ -1,5 +1,21 @@
 SET NAMES utf8mb4;
 
+CREATE TABLE IF NOT EXISTS abnormal_access (
+    id bigint(20) NOT NULL AUTO_INCREMENT,
+    user_id bigint(20) DEFAULT NULL,
+    abnormal_type varchar(50) DEFAULT NULL,
+    severity varchar(20) DEFAULT NULL,
+    detail text DEFAULT NULL,
+    create_time datetime DEFAULT current_timestamp(),
+    PRIMARY KEY (id) USING BTREE
+);
+
+ALTER TABLE abnormal_access
+    ADD COLUMN IF NOT EXISTS rule_name varchar(100) DEFAULT NULL AFTER user_id,
+    ADD COLUMN IF NOT EXISTS trigger_count int(11) DEFAULT NULL AFTER severity,
+    ADD COLUMN IF NOT EXISTS window_start datetime DEFAULT NULL AFTER trigger_count,
+    ADD COLUMN IF NOT EXISTS window_end datetime DEFAULT NULL AFTER window_start;
+
 UPDATE semester_info SET semester_name = '2023秋' WHERE id = 1;
 UPDATE semester_info SET semester_name = '2024春' WHERE id = 2;
 UPDATE semester_info SET semester_name = '2024秋' WHERE id = 3;
@@ -72,6 +88,84 @@ WHERE NOT EXISTS (
     SELECT 1 FROM permission WHERE permission_code = 'sys:masking-rule:update'
 );
 
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:access-log', '访问日志', 'MENU', 0, 'access-log', '/access-logs', 'accessLogs', 'log', NULL, NULL, 23, 1, '访问日志菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:access-log'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'sys:access-log:view', '查看访问日志', 'API',
+       (SELECT id FROM permission WHERE permission_code = 'menu:access-log'),
+       NULL, NULL, NULL, NULL, '/api/access-logs/**', 'GET', 505, 1, '查看访问日志'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'sys:access-log:view'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:rule-change-log', '规则变更日志', 'MENU', 0, 'rule-change-log', '/rule-change-logs', 'ruleChangeLogs', 'log', NULL, NULL, 24, 1, '规则变更日志菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:rule-change-log'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'sys:rule-change-log:view', '查看规则变更日志', 'API',
+       (SELECT id FROM permission WHERE permission_code = 'menu:rule-change-log'),
+       NULL, NULL, NULL, NULL, '/api/rule-change-logs/**', 'GET', 506, 1, '查看规则变更日志'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'sys:rule-change-log:view'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:abnormal-access', '异常访问监控', 'MENU', 0, 'abnormal-access', '/abnormal-access', 'abnormalAccess', 'log', NULL, NULL, 25, 1, '异常访问监控菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:abnormal-access'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'sys:abnormal-access:view', '查看异常访问', 'API',
+       (SELECT id FROM permission WHERE permission_code = 'menu:abnormal-access'),
+       NULL, NULL, NULL, NULL, '/api/abnormal-access/**', 'GET', 507, 1, '查看异常访问记录'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'sys:abnormal-access:view'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'sys:abnormal-access:detect', '执行异常检测', 'API',
+       (SELECT id FROM permission WHERE permission_code = 'menu:abnormal-access'),
+       NULL, NULL, NULL, NULL, '/api/abnormal-access/detect', 'POST', 508, 1, '执行异常访问检测'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'sys:abnormal-access:detect'
+);
+
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id
   FROM role r
@@ -100,6 +194,90 @@ INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id
   FROM role r
   JOIN permission p ON p.permission_code = 'sys:masking-rule:update'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+       WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:access-log'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'sys:access-log:view'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:rule-change-log'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'sys:rule-change-log:view'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:abnormal-access'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'sys:abnormal-access:view'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'sys:abnormal-access:detect'
  WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
    AND NOT EXISTS (
        SELECT 1

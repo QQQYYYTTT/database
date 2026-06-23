@@ -297,6 +297,34 @@ createApp({
             page: 1,
             size: 10
         });
+        const accessLogLoading = ref(false);
+        const accessLogError = ref("");
+        const accessLogPage = ref(defaultPageData());
+        const accessLogQuery = reactive({
+            userName: "",
+            roleCode: "",
+            operationType: "",
+            page: 1,
+            size: 10
+        });
+        const ruleChangeLogLoading = ref(false);
+        const ruleChangeLogError = ref("");
+        const ruleChangeLogPage = ref(defaultPageData());
+        const ruleChangeLogQuery = reactive({
+            operatorName: "",
+            page: 1,
+            size: 10
+        });
+        const abnormalAccessLoading = ref(false);
+        const abnormalAccessError = ref("");
+        const abnormalAccessPage = ref(defaultPageData());
+        const abnormalAccessQuery = reactive({
+            userName: "",
+            ruleName: "",
+            severity: "",
+            page: 1,
+            size: 10
+        });
 
         const studentProfileLoading = ref(false);
         const studentProfileError = ref("");
@@ -450,6 +478,24 @@ createApp({
                 headerTitle: "登录日志",
                 description: "查看登录成功和失败日志，支持按用户名筛选。",
                 actionText: "刷新日志"
+            },
+            "access-log": {
+                title: "访问日志",
+                headerTitle: "访问日志",
+                description: "查看查询学生信息和成绩时自动写入的访问审计记录。",
+                actionText: "刷新访问日志"
+            },
+            "rule-change-log": {
+                title: "规则变更日志",
+                headerTitle: "规则变更日志",
+                description: "查看脱敏规则更新后的数据库侧规则变更记录。",
+                actionText: "刷新规则变更日志"
+            },
+            "abnormal-access": {
+                title: "异常访问监控",
+                headerTitle: "异常访问监控",
+                description: "基于访问日志执行异常检测，识别高频查询、单日大量敏感访问和普通用户异常访问量。",
+                actionText: "执行检测"
             }
         };
 
@@ -750,6 +796,45 @@ createApp({
             }
         }
 
+        async function loadAccessLogs() {
+            accessLogLoading.value = true;
+            accessLogError.value = "";
+            try {
+                const { result } = await apiRequest(`/api/access-logs?${buildQuery(accessLogQuery)}`);
+                accessLogPage.value = result.data || defaultPageData();
+            } catch (error) {
+                accessLogError.value = error.message || "读取访问日志失败";
+            } finally {
+                accessLogLoading.value = false;
+            }
+        }
+
+        async function loadRuleChangeLogs() {
+            ruleChangeLogLoading.value = true;
+            ruleChangeLogError.value = "";
+            try {
+                const { result } = await apiRequest(`/api/rule-change-logs?${buildQuery(ruleChangeLogQuery)}`);
+                ruleChangeLogPage.value = result.data || defaultPageData();
+            } catch (error) {
+                ruleChangeLogError.value = error.message || "读取规则变更日志失败";
+            } finally {
+                ruleChangeLogLoading.value = false;
+            }
+        }
+
+        async function loadAbnormalAccess() {
+            abnormalAccessLoading.value = true;
+            abnormalAccessError.value = "";
+            try {
+                const { result } = await apiRequest(`/api/abnormal-access?${buildQuery(abnormalAccessQuery)}`);
+                abnormalAccessPage.value = result.data || defaultPageData();
+            } catch (error) {
+                abnormalAccessError.value = error.message || "读取异常访问记录失败";
+            } finally {
+                abnormalAccessLoading.value = false;
+            }
+        }
+
         async function loadStudentProfiles() {
             studentProfileLoading.value = true;
             studentProfileError.value = "";
@@ -876,6 +961,18 @@ createApp({
             }
             if (menuKey === "log") {
                 await loadLogs();
+                return;
+            }
+            if (menuKey === "access-log") {
+                await loadAccessLogs();
+                return;
+            }
+            if (menuKey === "rule-change-log") {
+                await loadRuleChangeLogs();
+                return;
+            }
+            if (menuKey === "abnormal-access") {
+                await loadAbnormalAccess();
             }
         }
 
@@ -896,6 +993,10 @@ createApp({
                 }
                 if (activeMenu.value === "score" && can("sys:user:create")) {
                     await openDataEntryModal(DATA_ENTRY_TYPE_SCORE);
+                    return;
+                }
+                if (activeMenu.value === "abnormal-access" && can("sys:abnormal-access:detect")) {
+                    await runAbnormalAccessDetection();
                     return;
                 }
                 await loadSectionData(activeMenu.value);
@@ -945,6 +1046,40 @@ createApp({
             studentScoreQuery.courseName = "";
             studentScoreQuery.semesterName = "";
             await loadStudentScores();
+        }
+
+        async function searchAbnormalAccess() {
+            abnormalAccessQuery.page = 1;
+            await loadAbnormalAccess();
+        }
+
+        async function resetAbnormalAccessSearch() {
+            abnormalAccessQuery.userName = "";
+            abnormalAccessQuery.ruleName = "";
+            abnormalAccessQuery.severity = "";
+            abnormalAccessQuery.page = 1;
+            await loadAbnormalAccess();
+        }
+
+        async function changeAbnormalAccessPage(page) {
+            if (page < 1 || page > (abnormalAccessPage.value.totalPages || 1)) {
+                return;
+            }
+            abnormalAccessQuery.page = page;
+            await loadAbnormalAccess();
+        }
+
+        async function runAbnormalAccessDetection() {
+            abnormalAccessLoading.value = true;
+            abnormalAccessError.value = "";
+            try {
+                await apiRequest("/api/abnormal-access/detect", { method: "POST" });
+                await loadAbnormalAccess();
+            } catch (error) {
+                abnormalAccessError.value = error.message || "执行异常访问检测失败";
+            } finally {
+                abnormalAccessLoading.value = false;
+            }
         }
 
         function resetDataEntryForm() {
@@ -1728,6 +1863,46 @@ createApp({
             await loadLogs();
         }
 
+        async function searchAccessLogs() {
+            accessLogQuery.page = 1;
+            await loadAccessLogs();
+        }
+
+        async function resetAccessLogSearch() {
+            accessLogQuery.userName = "";
+            accessLogQuery.roleCode = "";
+            accessLogQuery.operationType = "";
+            accessLogQuery.page = 1;
+            await loadAccessLogs();
+        }
+
+        async function changeAccessLogPage(page) {
+            if (page < 1 || page > (accessLogPage.value.totalPages || 1)) {
+                return;
+            }
+            accessLogQuery.page = page;
+            await loadAccessLogs();
+        }
+
+        async function searchRuleChangeLogs() {
+            ruleChangeLogQuery.page = 1;
+            await loadRuleChangeLogs();
+        }
+
+        async function resetRuleChangeLogSearch() {
+            ruleChangeLogQuery.operatorName = "";
+            ruleChangeLogQuery.page = 1;
+            await loadRuleChangeLogs();
+        }
+
+        async function changeRuleChangeLogPage(page) {
+            if (page < 1 || page > (ruleChangeLogPage.value.totalPages || 1)) {
+                return;
+            }
+            ruleChangeLogQuery.page = page;
+            await loadRuleChangeLogs();
+        }
+
         async function logout() {
             try {
                 await authorizedFetch("/api/user/logout", {
@@ -1801,6 +1976,18 @@ createApp({
             logError,
             logPage,
             logQuery,
+            accessLogLoading,
+            accessLogError,
+            accessLogPage,
+            accessLogQuery,
+            ruleChangeLogLoading,
+            ruleChangeLogError,
+            ruleChangeLogPage,
+            ruleChangeLogQuery,
+            abnormalAccessLoading,
+            abnormalAccessError,
+            abnormalAccessPage,
+            abnormalAccessQuery,
             studentProfileLoading,
             studentProfileError,
             studentProfiles,
@@ -1909,6 +2096,16 @@ createApp({
             searchLogs,
             resetLogSearch,
             changeLogPage,
+            searchAccessLogs,
+            resetAccessLogSearch,
+            changeAccessLogPage,
+            searchRuleChangeLogs,
+            resetRuleChangeLogSearch,
+            changeRuleChangeLogPage,
+            searchAbnormalAccess,
+            resetAbnormalAccessSearch,
+            changeAbnormalAccessPage,
+            runAbnormalAccessDetection,
             logout
         };
     }

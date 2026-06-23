@@ -79,7 +79,7 @@ class DynamicMaskingDatabaseInspectionTest {
                 SELECT ROUTINE_TYPE, ROUTINE_NAME
                 FROM information_schema.ROUTINES
                 WHERE ROUTINE_SCHEMA = DATABASE()
-                  AND ROUTINE_NAME IN ('FN_APPLY_MASK', 'FN_MASK_BY_ROLE', 'SP_QUERY_STUDENTS', 'SP_QUERY_STUDENT_SCORES')
+                  AND ROUTINE_NAME IN ('FN_APPLY_MASK', 'FN_MASK_BY_ROLE', 'SP_QUERY_STUDENTS', 'SP_QUERY_STUDENT_SCORES', 'SP_DETECT_ABNORMAL')
                 ORDER BY ROUTINE_TYPE, ROUTINE_NAME
                 """;
         try (PreparedStatement ps = connection.prepareStatement(sql);
