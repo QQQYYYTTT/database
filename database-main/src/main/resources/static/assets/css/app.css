@@ -347,6 +347,10 @@ textarea {
     cursor: pointer;
 }
 
+.sidebar-menu-item.is-parent {
+    font-weight: 600;
+}
+
 .sidebar-menu-item:hover {
     background: #f5f8fc;
 }
@@ -375,6 +379,13 @@ textarea {
 .menu-label {
     font-size: 14px;
     white-space: nowrap;
+}
+
+.menu-caret {
+    margin-left: auto;
+    color: #7b8aa5;
+    font-size: 16px;
+    line-height: 1;
 }
 
 .admin-main {
@@ -438,6 +449,12 @@ textarea {
     color: #3b4a63;
     font-size: 14px;
     font-weight: 600;
+}
+
+.profile-entry {
+    border: none;
+    background: transparent;
+    cursor: pointer;
 }
 
 .header-user-icon,
@@ -558,6 +575,295 @@ textarea {
 
 .table-panel {
     padding: 16px;
+}
+
+.analytics-page {
+    gap: 18px;
+}
+
+.analytics-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+    gap: 16px;
+}
+
+.analytics-role-card,
+.analytics-summary-card,
+.analytics-card,
+.analytics-sample-item {
+    border: 1px solid var(--line-mid);
+    background: #ffffff;
+}
+
+.analytics-role-card {
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+    background: linear-gradient(145deg, #f8fbff 0%, #eef5ff 100%);
+}
+
+.analytics-role-card strong {
+    color: #1e2f4b;
+    font-size: 18px;
+}
+
+.analytics-role-card p {
+    margin: 0;
+    color: #4f627f;
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.analytics-role-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.analytics-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    background: #dcebff;
+    color: #2358b8;
+    font-size: 12px;
+}
+
+.analytics-tag.muted {
+    background: #eef2f7;
+    color: #5d6e86;
+}
+
+.analytics-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.analytics-summary-card {
+    min-height: 108px;
+    padding: 16px;
+}
+
+.analytics-summary-card span {
+    display: block;
+    color: var(--text-sub);
+    font-size: 12px;
+}
+
+.analytics-summary-card strong {
+    display: block;
+    margin-top: 10px;
+    color: #18263e;
+    font-size: 28px;
+    line-height: 1;
+}
+
+.analytics-summary-card p {
+    margin: 10px 0 0;
+    color: var(--text-light);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.analytics-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.analytics-grid-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analytics-card {
+    padding: 16px;
+}
+
+.analytics-card-wide {
+    grid-column: span 2;
+}
+
+.analytics-chart {
+    width: 100%;
+    min-height: 320px;
+}
+
+.analytics-chart-list {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+}
+
+.analytics-chart-distribution {
+    display: grid;
+    align-content: start;
+    gap: 18px;
+}
+
+.analytics-chart-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    border: 1px dashed #d7e3f5;
+    background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+    color: #6d7f99;
+    font-size: 13px;
+}
+
+.metric-bar-row {
+    display: grid;
+    gap: 8px;
+}
+
+.metric-bar-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.metric-bar-rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: #ebf3ff;
+    color: #2f6fe4;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.metric-bar-label {
+    min-width: 0;
+    color: #24324b;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.metric-bar-head strong {
+    color: #18263e;
+    font-size: 16px;
+}
+
+.metric-bar-track {
+    position: relative;
+    overflow: hidden;
+    height: 12px;
+    background: #edf3fb;
+}
+
+.metric-bar-fill {
+    height: 100%;
+    min-width: 8px;
+    background: linear-gradient(90deg, #2f6fe4 0%, #6ea8ff 100%);
+}
+
+.metric-bar-fill-strong {
+    background: linear-gradient(90deg, #db5876 0%, #f39b71 100%);
+}
+
+.metric-bar-fill-calm {
+    background: linear-gradient(90deg, #1f8f8b 0%, #7ac9c1 100%);
+}
+
+.metric-bar-meta {
+    margin: 0;
+    color: #70819a;
+    font-size: 12px;
+}
+
+.distribution-stack {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    align-items: end;
+    min-height: 176px;
+}
+
+.distribution-stack-item {
+    display: flex;
+    align-items: end;
+    min-height: 176px;
+    padding: 8px;
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+}
+
+.distribution-stack-fill {
+    width: 100%;
+    min-height: 12px;
+    background: linear-gradient(180deg, #2f6fe4 0%, #9abfff 100%);
+}
+
+.distribution-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.distribution-card {
+    padding: 12px;
+    background: #fbfcff;
+}
+
+.distribution-card span {
+    display: block;
+    color: #6d7f99;
+    font-size: 12px;
+}
+
+.distribution-card strong {
+    display: block;
+    margin-top: 8px;
+    color: #1c2b46;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.distribution-card p {
+    margin: 8px 0 0;
+    color: #4d6388;
+    font-size: 12px;
+}
+
+.analytics-table-compact {
+    min-width: 100%;
+}
+
+.analytics-sample-list {
+    display: grid;
+    gap: 12px;
+}
+
+.analytics-sample-item {
+    padding: 14px 16px;
+    background: #fbfcff;
+}
+
+.analytics-sample-item span {
+    display: block;
+    color: var(--text-sub);
+    font-size: 12px;
+}
+
+.analytics-sample-item strong {
+    display: block;
+    margin-top: 8px;
+    color: #1f3150;
+    font-size: 22px;
+    letter-spacing: 0.3px;
+}
+
+.analytics-sample-item p {
+    margin: 8px 0 0;
+    color: var(--text-light);
+    font-size: 12px;
+    line-height: 1.7;
 }
 
 .panel-heading {
@@ -1217,6 +1523,16 @@ textarea {
     .metric-strip {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .analytics-overview,
+    .analytics-summary-grid,
+    .analytics-grid-two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .distribution-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 920px) {
@@ -1256,6 +1572,25 @@ textarea {
 
     .metric-strip {
         grid-template-columns: 1fr;
+    }
+
+    .analytics-overview,
+    .analytics-summary-grid,
+    .analytics-grid-two {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-card-wide {
+        grid-column: auto;
+    }
+
+    .distribution-stack,
+    .distribution-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .distribution-stack-item {
+        min-height: 72px;
     }
 
     .toolbar-row,

@@ -59,6 +59,143 @@ INSERT INTO permission (
     route_path, component_path, icon, api_pattern, http_method, sort_num,
     visible, description
 )
+SELECT 'menu:student-data-center', '学生数据中心', 'MENU', 0, 'student-data-center', '/student-data-center', 'studentDataCenter', 'team', NULL, NULL, 20, 1, '学生数据中心父菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:student-data-center'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:analytics-center', '数据统计分析中心', 'MENU', 0, 'analytics-center', '/analytics-center', 'analyticsCenter', 'bar-chart', NULL, NULL, 30, 1, '数据统计分析中心父菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:analytics-center'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:grade-analytics', '学生成绩分析', 'MENU',
+       (SELECT id FROM permission WHERE permission_code = 'menu:analytics-center'),
+       'grade-analytics', '/analytics/grades', 'gradeAnalytics', 'bar-chart', NULL, NULL, 31, 1, '学生成绩分析占位菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:grade-analytics'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:sensitive-analytics', '敏感数据分析', 'MENU',
+       (SELECT id FROM permission WHERE permission_code = 'menu:analytics-center'),
+       'sensitive-analytics', '/analytics/sensitive-data', 'sensitiveAnalytics', 'bar-chart', NULL, NULL, 32, 1, '敏感数据分析占位菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:sensitive-analytics'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'biz:analytics:score:view', '查看学生成绩分析', 'API',
+       (SELECT id FROM permission WHERE permission_code = 'menu:grade-analytics'),
+       NULL, NULL, NULL, NULL, '/api/analytics/score', 'GET', 331, 1, '查看学生成绩分析聚合统计接口'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'biz:analytics:score:view'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'biz:analytics:sensitive:view', '查看敏感数据分析', 'API',
+       (SELECT id FROM permission WHERE permission_code = 'menu:sensitive-analytics'),
+       NULL, NULL, NULL, NULL, '/api/analytics/sensitive', 'GET', 332, 1, '查看敏感数据分析聚合统计接口'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'biz:analytics:sensitive:view'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:security-center', '数据安全中心', 'MENU', 0, 'security-center', '/security-center', 'securityCenter', 'permission', NULL, NULL, 40, 1, '数据安全中心父菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:security-center'
+);
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
+SELECT 'menu:system-management', '系统管理', 'MENU', 0, 'system-management', '/system-management', 'systemManagement', 'user', NULL, NULL, 50, 1, '系统管理父菜单'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permission WHERE permission_code = 'menu:system-management'
+);
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:student-data-center'),
+    sort_num = 21
+WHERE permission_code = 'menu:student';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:student-data-center'),
+    sort_num = 22
+WHERE permission_code = 'menu:score';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:security-center'),
+    sort_num = 41
+WHERE permission_code = 'menu:masking-rule';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:security-center'),
+    sort_num = 42
+WHERE permission_code = 'menu:access-log';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:security-center'),
+    sort_num = 43
+WHERE permission_code = 'menu:rule-change-log';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:security-center'),
+    sort_num = 44
+WHERE permission_code = 'menu:abnormal-access';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:system-management'),
+    sort_num = 51
+WHERE permission_code = 'menu:user';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:system-management'),
+    sort_num = 52
+WHERE permission_code = 'menu:role';
+
+UPDATE permission
+SET parent_id = (SELECT id FROM permission WHERE permission_code = 'menu:system-management'),
+    sort_num = 53
+WHERE permission_code = 'menu:permission';
+
+UPDATE permission
+SET visible = 0
+WHERE permission_code = 'menu:profile';
+
+INSERT INTO permission (
+    permission_code, permission_name, permission_type, parent_id, menu_key,
+    route_path, component_path, icon, api_pattern, http_method, sort_num,
+    visible, description
+)
 SELECT 'menu:masking-rule', '脱敏规则管理', 'MENU', 0, 'masking-rule', '/masking-rules', 'maskingRules', 'permission', NULL, NULL, 22, 1, '脱敏规则管理菜单'
 WHERE NOT EXISTS (
     SELECT 1 FROM permission WHERE permission_code = 'menu:masking-rule'
@@ -169,6 +306,90 @@ WHERE NOT EXISTS (
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id
   FROM role r
+  JOIN permission p ON p.permission_code = 'menu:student-data-center'
+ WHERE r.role_code IN ('SUPER_ADMIN', 'DATA_ADMIN', 'TEACHER', 'ANALYST', 'NORMAL', 'STUDENT')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:analytics-center'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN', 'TEACHER', 'ANALYST')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:grade-analytics'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN', 'TEACHER', 'ANALYST')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+       WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'biz:analytics:score:view'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN', 'TEACHER', 'ANALYST')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:sensitive-analytics'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN', 'TEACHER', 'ANALYST')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:security-center'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'menu:system-management'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
   JOIN permission p ON p.permission_code = 'menu:masking-rule'
  WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN')
    AND NOT EXISTS (
@@ -199,6 +420,18 @@ SELECT r.id, p.id
        SELECT 1
          FROM role_permission rp
        WHERE rp.role_id = r.id
+          AND rp.permission_id = p.id
+   );
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+  FROM role r
+  JOIN permission p ON p.permission_code = 'biz:analytics:sensitive:view'
+ WHERE r.role_code IN ('ADMIN', 'SUPER_ADMIN', 'DATA_ADMIN', 'TEACHER', 'ANALYST')
+   AND NOT EXISTS (
+       SELECT 1
+         FROM role_permission rp
+        WHERE rp.role_id = r.id
           AND rp.permission_id = p.id
    );
 

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cd.mapper.AnalyticsMapper">
+
+    <resultMap id="ScoreAnalyticsOverviewResultMap" type="com.cd.dto.ScoreAnalyticsOverviewResponse">
+        <result property="totalStudents" column="total_students"/>
+        <result property="totalScoreRecords" column="total_score_records"/>
+        <result property="semesterCount" column="semester_count"/>
+        <result property="averageScore" column="average_score"/>
+        <result property="passRate" column="pass_rate"/>
+    </resultMap>
+
+    <resultMap id="AnalyticsRankingResultMap" type="com.cd.dto.AnalyticsRankingItemResponse">
+        <result property="name" column="name"/>
+        <result property="averageScore" column="average_score"/>
+        <result property="sampleCount" column="sample_count"/>
+    </resultMap>
+
+    <resultMap id="AnalyticsDistributionResultMap" type="com.cd.dto.AnalyticsDistributionItemResponse">
+        <result property="label" column="label"/>
+        <result property="count" column="count"/>
+        <result property="sortOrder" column="sort_order"/>
+    </resultMap>
+
+    <resultMap id="SensitiveCoverageResultMap" type="com.cd.dto.SensitiveCoverageItemResponse">
+        <result property="fieldKey" column="field_key"/>
+        <result property="fieldLabel" column="field_label"/>
+        <result property="filledCount" column="filled_count"/>
+        <result property="totalCount" column="total_count"/>
+        <result property="coverageRate" column="coverage_rate"/>
+    </resultMap>
+
+    <resultMap id="SensitiveVisibilitySampleResultMap" type="com.cd.dto.SensitiveVisibilitySampleResponse">
+        <result property="fieldLabel" column="field_label"/>
+        <result property="maskedValue" column="masked_value"/>
+        <result property="maskingTypeName" column="masking_type_name"/>
+        <result property="policySource" column="policy_source"/>
+    </resultMap>
+
+    <select id="selectScoreOverview" resultMap="ScoreAnalyticsOverviewResultMap">
+        SELECT COUNT(DISTINCT s.id) AS total_students,
+               COUNT(ssc.id) AS total_score_records,
+               COUNT(DISTINCT sem.id) AS semester_count,
+               ROUND(AVG(ssc.score), 2) AS average_score,
+               ROUND(SUM(CASE WHEN ssc.score &gt;= 60 THEN 1 ELSE 0 END) * 100 / NULLIF(COUNT(ssc.id), 0), 2) AS pass_rate
+        FROM student_score ssc
+        JOIN student s ON s.id = ssc.student_id
+        JOIN course co ON co.id = ssc.course_id
+        JOIN semester_info sem ON sem.id = ssc.semester_id
+    </select>
+
+    <select id="selectCollegeAverageRanking" resultMap="AnalyticsRankingResultMap">
+        SELECT c.college_name AS name,
+               ROUND(AVG(ssc.score), 2) AS average_score,
+               COUNT(ssc.id) AS sample_count
+        FROM student_score ssc
+        JOIN student s ON s.id = ssc.student_id
+        JOIN class_info ci ON ci.id = s.class_id
+        JOIN major m ON m.id = ci.major_id
+        JOIN college c ON c.id = m.college_id
+        GROUP BY c.id, c.college_name
+        ORDER BY average_score DESC, sample_count DESC, c.college_name ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectMajorAverageRanking" resultMap="AnalyticsRankingResultMap">
+        SELECT m.major_name AS name,
+               ROUND(AVG(ssc.score), 2) AS average_score,
+               COUNT(ssc.id) AS sample_count
+        FROM student_score ssc
+        JOIN student s ON s.id = ssc.student_id
+        JOIN class_info ci ON ci.id = s.class_id
+        JOIN major m ON m.id = ci.major_id
+        GROUP BY m.id, m.major_name
+        ORDER BY average_score DESC, sample_count DESC, m.major_name ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectCourseAverageRanking" resultMap="AnalyticsRankingResultMap">
+        SELECT co.course_name AS name,
+               ROUND(AVG(ssc.score), 2) AS average_score,
+               COUNT(ssc.id) AS sample_count
+        FROM student_score ssc
+        JOIN course co ON co.id = ssc.course_id
+        GROUP BY co.id, co.course_name
+        ORDER BY average_score DESC, sample_count DESC, co.course_name ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectScoreDistribution" resultMap="AnalyticsDistributionResultMap">
+        SELECT CASE
+                   WHEN ssc.score &gt;= 90 THEN '90-100'
+                   WHEN ssc.score &gt;= 80 THEN '80-89'
+                   WHEN ssc.score &gt;= 70 THEN '70-79'
+                   WHEN ssc.score &gt;= 60 THEN '60-69'
+                   ELSE '60以下'
+               END AS label,
+               COUNT(ssc.id) AS count,
+               CASE
+                   WHEN ssc.score &gt;= 90 THEN 1
+                   WHEN ssc.score &gt;= 80 THEN 2
+                   WHEN ssc.score &gt;= 70 THEN 3
+                   WHEN ssc.score &gt;= 60 THEN 4
+                   ELSE 5
+               END AS sort_order
+        FROM student_score ssc
+        GROUP BY label, sort_order
+        ORDER BY sort_order ASC
+    </select>
+
+    <select id="selectSensitiveCoverage" resultMap="SensitiveCoverageResultMap">
+        SELECT 'phone' AS field_key,
+               '手机号' AS field_label,
+               SUM(CASE WHEN ss.phone IS NOT NULL AND TRIM(ss.phone) &lt;&gt; '' THEN 1 ELSE 0 END) AS filled_count,
+               COUNT(s.id) AS total_count,
+               ROUND(SUM(CASE WHEN ss.phone IS NOT NULL AND TRIM(ss.phone) &lt;&gt; '' THEN 1 ELSE 0 END) * 100 / NULLIF(COUNT(s.id), 0), 2) AS coverage_rate
+        FROM student s
+        LEFT JOIN student_sensitive ss ON ss.student_id = s.id
+        UNION ALL
+        SELECT 'email' AS field_key,
+               '邮箱' AS field_label,
+               SUM(CASE WHEN ss.email IS NOT NULL AND TRIM(ss.email) &lt;&gt; '' THEN 1 ELSE 0 END) AS filled_count,
+               COUNT(s.id) AS total_count,
+               ROUND(SUM(CASE WHEN ss.email IS NOT NULL AND TRIM(ss.email) &lt;&gt; '' THEN 1 ELSE 0 END) * 100 / NULLIF(COUNT(s.id), 0), 2) AS coverage_rate
+        FROM student s
+        LEFT JOIN student_sensitive ss ON ss.student_id = s.id
+        UNION ALL
+        SELECT 'id_card' AS field_key,
+               '身份证号' AS field_label,
+               SUM(CASE WHEN ss.id_card IS NOT NULL AND TRIM(ss.id_card) &lt;&gt; '' THEN 1 ELSE 0 END) AS filled_count,
+               COUNT(s.id) AS total_count,
+               ROUND(SUM(CASE WHEN ss.id_card IS NOT NULL AND TRIM(ss.id_card) &lt;&gt; '' THEN 1 ELSE 0 END) * 100 / NULLIF(COUNT(s.id), 0), 2) AS coverage_rate
+        FROM student s
+        LEFT JOIN student_sensitive ss ON ss.student_id = s.id
+        UNION ALL
+        SELECT 'family_income' AS field_key,
+               '家庭收入' AS field_label,
+               SUM(CASE WHEN ss.family_income IS NOT NULL THEN 1 ELSE 0 END) AS filled_count,
+               COUNT(s.id) AS total_count,
+               ROUND(SUM(CASE WHEN ss.family_income IS NOT NULL THEN 1 ELSE 0 END) * 100 / NULLIF(COUNT(s.id), 0), 2) AS coverage_rate
+        FROM student s
+        LEFT JOIN student_sensitive ss ON ss.student_id = s.id
+    </select>
+
+    <select id="selectSensitiveVisibilitySamples" resultMap="SensitiveVisibilitySampleResultMap">
+        WITH latest_assignment AS (
+            SELECT
+                mra.role_id AS role_id,
+                mp.sensitive_field_id AS sensitive_field_id,
+                mp.masking_type AS masking_type,
+                mtd.type_name AS masking_type_name,
+                ROW_NUMBER() OVER (
+                    PARTITION BY mra.role_id, mp.sensitive_field_id
+                    ORDER BY mra.id DESC, mp.id DESC
+                ) AS rn
+            FROM masking_rule_assignment mra
+            JOIN masking_policy mp ON mp.id = mra.policy_id
+            LEFT JOIN masking_type_dict mtd ON mtd.type_code = mp.masking_type
+            WHERE mra.enabled = 1
+        ),
+        effective_policy AS (
+            SELECT sf.column_name AS column_name,
+                   COALESCE(la.masking_type_name, dtd.type_name, COALESCE(la.masking_type, dp.masking_type)) AS masking_type_name,
+                   CASE WHEN la.role_id IS NULL THEN '默认策略' ELSE '角色策略' END AS policy_source
+            FROM sensitive_field sf
+            LEFT JOIN latest_assignment la
+                   ON la.sensitive_field_id = sf.id
+                  AND la.role_id = #{roleId}
+                  AND la.rn = 1
+            LEFT JOIN masking_policy dp
+                   ON dp.sensitive_field_id = sf.id
+                  AND dp.is_default = 1
+            LEFT JOIN masking_type_dict dtd
+                   ON dtd.type_code = dp.masking_type
+            WHERE sf.enabled = 1
+              AND sf.table_name = 'v_student_profile'
+              AND sf.column_name IN ('phone', 'email', 'id_card', 'family_income')
+        )
+        SELECT '手机号' AS field_label,
+               FN_MASK_BY_ROLE(#{roleId}, 'v_student_profile', 'phone', '13812345678') AS masked_value,
+               ep.masking_type_name AS masking_type_name,
+               ep.policy_source AS policy_source
+        FROM effective_policy ep
+        WHERE ep.column_name = 'phone'
+        UNION ALL
+        SELECT '邮箱' AS field_label,
+               FN_MASK_BY_ROLE(#{roleId}, 'v_student_profile', 'email', 'abc_student@example.com') AS masked_value,
+               ep.masking_type_name AS masking_type_name,
+               ep.policy_source AS policy_source
+        FROM effective_policy ep
+        WHERE ep.column_name = 'email'
+        UNION ALL
+        SELECT '身份证号' AS field_label,
+               FN_MASK_BY_ROLE(#{roleId}, 'v_student_profile', 'id_card', '510101199901011234') AS masked_value,
+               ep.masking_type_name AS masking_type_name,
+               ep.policy_source AS policy_source
+        FROM effective_policy ep
+        WHERE ep.column_name = 'id_card'
+        UNION ALL
+        SELECT '家庭收入' AS field_label,
+               FN_MASK_BY_ROLE(#{roleId}, 'v_student_profile', 'family_income', '156800') AS masked_value,
+               ep.masking_type_name AS masking_type_name,
+               ep.policy_source AS policy_source
+        FROM effective_policy ep
+        WHERE ep.column_name = 'family_income'
+    </select>
+
+</mapper>

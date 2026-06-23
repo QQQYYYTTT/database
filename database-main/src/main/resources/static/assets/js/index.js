@@ -1,4 +1,4 @@
-const { createApp, computed, onMounted, reactive, ref } = Vue;
+const { createApp, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } = Vue;
 
 const TOKEN_KEY = "platform_token";
 const USER_KEY = "platform_user";
@@ -191,6 +191,43 @@ const flattenPermissionTree = (nodes, depth = 0, result = []) => {
     return result;
 };
 
+const findMenuNodeByKey = (nodes, menuKey) => {
+    for (const node of nodes || []) {
+        if (node.menuKey === menuKey) {
+            return node;
+        }
+        const matchedChild = findMenuNodeByKey(node.children || [], menuKey);
+        if (matchedChild) {
+            return matchedChild;
+        }
+    }
+    return null;
+};
+
+const defaultScoreAnalytics = () => ({
+    roleCode: "",
+    roleName: "",
+    granularity: "",
+    scopeNote: "",
+    summaryCards: [],
+    collegeRanking: [],
+    majorRanking: [],
+    courseRanking: [],
+    scoreDistribution: []
+});
+
+const defaultSensitiveAnalytics = () => ({
+    roleCode: "",
+    roleName: "",
+    granularity: "",
+    scopeNote: "",
+    summaryCards: [],
+    levelDistribution: [],
+    coverage: [],
+    fieldCatalog: [],
+    visibilitySamples: []
+});
+
 createApp({
     setup() {
         if (!getToken()) {
@@ -200,6 +237,7 @@ createApp({
         const currentUser = ref(JSON.parse(localStorage.getItem(USER_KEY) || "{}"));
         const isCollapsed = ref(false);
         const activeMenu = ref(null);
+        const expandedMenuKeys = ref([]);
 
         const homeUserTotal = ref(null);
         const homeLogTotal = ref(null);
@@ -358,6 +396,12 @@ createApp({
             courseName: "",
             semesterName: ""
         });
+        const gradeAnalyticsLoading = ref(false);
+        const gradeAnalyticsError = ref("");
+        const gradeAnalytics = ref(defaultScoreAnalytics());
+        const sensitiveAnalyticsLoading = ref(false);
+        const sensitiveAnalyticsError = ref("");
+        const sensitiveAnalytics = ref(defaultSensitiveAnalytics());
         const dataEntryOptionsLoading = ref(false);
         const dataEntryOptionsLoaded = ref(false);
         const dataEntryOptions = reactive({
@@ -499,7 +543,82 @@ createApp({
             }
         };
 
+        sectionMap["student-data-center"] = {
+            title: "瀛︾敓鏁版嵁涓績",
+            headerTitle: "瀛︾敓鏁版嵁涓績",
+            description: "闆嗕腑鏌ョ湅瀛︾敓淇℃伅鍜屾垚缁╂暟鎹紝璁╁鐢熺浉鍏冲姛鑳介泦涓埌鍚屼竴缁勮彍鍗曚笅銆?",
+            actionText: "鏌ョ湅瀛︾敓淇℃伅"
+        };
+        sectionMap["analytics-center"] = {
+            title: "鏁版嵁缁熻鍒嗘瀽涓績",
+            headerTitle: "鏁版嵁缁熻鍒嗘瀽涓績",
+            description: "褰撳墠鍏堜繚鐣欏垎鏋愪腑蹇冨叆鍙ｃ€傚悗缁皢鍦ㄨ繖閲屾壙杞藉鐢熸垚缁╁垎鏋愬拰鏁忔劅鏁版嵁鍒嗘瀽鑳藉姏銆?",
+            actionText: "鍒锋柊鍗犱綅椤?"
+        };
+        sectionMap["grade-analytics"] = {
+            title: "瀛︾敓鎴愮哗鍒嗘瀽",
+            headerTitle: "瀛︾敓鎴愮哗鍒嗘瀽",
+            description: "褰撳墠涓虹浜岄樁娈电殑鍗犱綅鍏ュ彛锛屽悗缁皢鍦ㄨ繖閲屽睍绀烘垚缁╃粺璁′笌鍙鍖栧垎鏋愩€?",
+            actionText: "鍒锋柊鍗犱綅椤?"
+        };
+        sectionMap["sensitive-analytics"] = {
+            title: "鏁忔劅鏁版嵁鍒嗘瀽",
+            headerTitle: "鏁忔劅鏁版嵁鍒嗘瀽",
+            description: "褰撳墠涓虹浜岄樁娈电殑鍗犱綅鍏ュ彛锛屽悗缁皢鎵胯浇鏁忔劅瀛楁銆佽闂秼鍔垮拰瀹夊叏鍒嗘瀽瑙嗗浘銆?",
+            actionText: "鍒锋柊鍗犱綅椤?"
+        };
+        sectionMap["security-center"] = {
+            title: "鏁版嵁瀹夊叏涓績",
+            headerTitle: "鏁版嵁瀹夊叏涓績",
+            description: "灏嗚劚鏁忚鍒欍€佽闂棩蹇椼€佽鍒欏彉鏇存棩蹇椾笌寮傚父璁块棶鐩戞帶闆嗕腑鍦ㄥ悓涓€涓畨鍏ㄤ腑蹇冦€?",
+            actionText: "鏌ョ湅鑴辨晱瑙勫垯"
+        };
+        sectionMap["system-management"] = {
+            title: "绯荤粺绠＄悊",
+            headerTitle: "绯荤粺绠＄悊",
+            description: "灏嗙敤鎴风鐞嗐€佽鑹茬鐞嗐€佹潈闄愮鐞嗚繘琛岀粍缁囷紝璁╃郴缁熼厤缃粨鏋勬洿娓呮櫚銆?",
+            actionText: "鏌ョ湅鐢ㄦ埛绠＄悊"
+        };
+
+        sectionMap["analytics-center"] = {
+            title: "数据统计分析中心",
+            headerTitle: "数据统计分析中心",
+            description: "集中查看学生成绩分析与敏感数据分析等聚合统计结果，页面仅展示分析视图，不返回敏感明细。",
+            actionText: "刷新分析概览"
+        };
+        sectionMap["grade-analytics"] = {
+            title: "学生成绩分析",
+            headerTitle: "学生成绩分析",
+            description: "复用学生、成绩、课程、学期、专业与学院基础数据，展示学院、专业、课程排名和成绩分布等聚合统计图。",
+            actionText: "刷新成绩分析"
+        };
+        sectionMap["sensitive-analytics"] = {
+            title: "敏感数据分析",
+            headerTitle: "敏感数据分析",
+            description: "复用敏感字段目录、脱敏策略和规则分配，展示覆盖率统计、字段目录和当前角色的真实脱敏可见效果。",
+            actionText: "刷新敏感分析"
+        };
+
         const flatMenus = computed(() => flattenMenuTree(currentUser.value.menuTree || []));
+        const visibleMenus = computed(() => {
+            const expanded = new Set(expandedMenuKeys.value);
+            const result = [];
+            const visit = (nodes, depth = 0) => {
+                (nodes || []).forEach((node) => {
+                    result.push({
+                        ...node,
+                        depth,
+                        hasChildren: Boolean(node.children && node.children.length > 0),
+                        expanded: expanded.has(node.menuKey)
+                    });
+                    if (node.children && node.children.length > 0 && expanded.has(node.menuKey)) {
+                        visit(node.children, depth + 1);
+                    }
+                });
+            };
+            visit(currentUser.value.menuTree || []);
+            return result;
+        });
         const flattenedPermissionTree = computed(() => flattenPermissionTree(permissionTree.value || []));
         const parentPermissionOptions = computed(() =>
             flattenedPermissionTree.value.filter((item) => item.id !== permissionForm.id)
@@ -647,8 +766,120 @@ createApp({
             return value ?? "--";
         }
 
+        function formatAnalyticsNumber(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) {
+                return "--";
+            }
+            return number.toFixed(2);
+        }
+
+        function formatAnalyticsPercent(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) {
+                return "--";
+            }
+            return `${number.toFixed(2)}%`;
+        }
+
+        function safeMetricValue(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) {
+                return 0;
+            }
+            return number;
+        }
+
+        function paletteColor(index, tones = ["#2f6fe4", "#4f8df0", "#6ea8ff", "#15a38a", "#f1b24a", "#d14c6d"]) {
+            return tones[index % tones.length];
+        }
+
+        function rankingBarStyle(value, index = 0) {
+            const score = Math.max(0, Math.min(100, safeMetricValue(value)));
+            return {
+                width: `${Math.max(score, 6)}%`,
+                background: `linear-gradient(90deg, ${paletteColor(index)} 0%, #9cc2ff 100%)`
+            };
+        }
+
+        function sumMetric(items, key = "count") {
+            return (items || []).reduce((total, item) => total + safeMetricValue(item?.[key]), 0);
+        }
+
+        function distributionPercent(value, items) {
+            const total = sumMetric(items, "count");
+            if (!total) {
+                return 0;
+            }
+            return safeMetricValue(value) / total * 100;
+        }
+
+        function distributionBarStyle(value, items, index = 0) {
+            const total = sumMetric(items, "count");
+            const current = safeMetricValue(value);
+            const max = Math.max(...(items || []).map((item) => safeMetricValue(item.count)), 0);
+            const ratio = max > 0 ? current / max : 0;
+            return {
+                height: `${Math.max(ratio * 100, current > 0 ? 12 : 0)}%`,
+                background: `linear-gradient(180deg, ${paletteColor(index)} 0%, #c7dcff 100%)`
+            };
+        }
+
+        function countBarStyle(value, items, index = 0) {
+            const current = safeMetricValue(value);
+            const max = Math.max(...(items || []).map((item) => safeMetricValue(item.count)), 0);
+            const ratio = max > 0 ? current / max : 0;
+            return {
+                width: `${Math.max(ratio * 100, current > 0 ? 8 : 0)}%`,
+                background: `linear-gradient(90deg, ${paletteColor(index, ["#d14c6d", "#eb7b54", "#f1b24a", "#2f6fe4"])} 0%, #f5c0a9 100%)`
+            };
+        }
+
+        function coverageBarStyle(value, index = 0) {
+            const ratio = Math.max(0, Math.min(100, safeMetricValue(value)));
+            return {
+                width: `${Math.max(ratio, 6)}%`,
+                background: `linear-gradient(90deg, ${paletteColor(index, ["#1f8f8b", "#39a7a1", "#67beb9", "#8bd2ce"])} 0%, #b9ebe7 100%)`
+            };
+        }
+
         function toggleSidebar() {
             isCollapsed.value = !isCollapsed.value;
+        }
+
+        function isMenuExpanded(menuKey) {
+            return expandedMenuKeys.value.includes(menuKey);
+        }
+
+        function expandAncestorMenus(menuKey) {
+            const trail = [];
+            const walk = (nodes, parents = []) => {
+                for (const node of nodes || []) {
+                    if (node.menuKey === menuKey) {
+                        trail.push(...parents);
+                        return true;
+                    }
+                    if (walk(node.children || [], [...parents, node.menuKey])) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            walk(currentUser.value.menuTree || []);
+            if (trail.length === 0) {
+                return;
+            }
+            const expanded = new Set(expandedMenuKeys.value);
+            trail.forEach((key) => expanded.add(key));
+            expandedMenuKeys.value = [...expanded];
+        }
+
+        function toggleMenuGroup(menuKey) {
+            if (isMenuExpanded(menuKey)) {
+                expandedMenuKeys.value = expandedMenuKeys.value.filter((item) => item !== menuKey);
+                return;
+            }
+            expandedMenuKeys.value = [...expandedMenuKeys.value, menuKey];
         }
 
         function handleUnauthorized() {
@@ -687,6 +918,9 @@ createApp({
         }
 
         function ensureActiveMenu() {
+            if (activeMenu.value === "profile") {
+                return;
+            }
             const firstMenu = flatMenus.value[0];
             if (!firstMenu) {
                 activeMenu.value = null;
@@ -694,6 +928,16 @@ createApp({
             }
             if (!flatMenus.value.some((menu) => menu.menuKey === activeMenu.value)) {
                 activeMenu.value = firstMenu.menuKey;
+            }
+            const activeNode = findMenuNodeByKey(currentUser.value.menuTree || [], activeMenu.value);
+            if (activeNode?.children?.length > 0) {
+                const firstLeaf = flattenMenuTree(activeNode.children || [])[0];
+                if (firstLeaf) {
+                    activeMenu.value = firstLeaf.menuKey;
+                }
+            }
+            if (activeMenu.value) {
+                expandAncestorMenus(activeMenu.value);
             }
         }
 
@@ -861,6 +1105,34 @@ createApp({
             }
         }
 
+        async function loadGradeAnalytics() {
+            gradeAnalyticsLoading.value = true;
+            gradeAnalyticsError.value = "";
+            try {
+                const { result } = await apiRequest("/api/analytics/score");
+                gradeAnalytics.value = result.data || defaultScoreAnalytics();
+            } catch (error) {
+                gradeAnalytics.value = defaultScoreAnalytics();
+                gradeAnalyticsError.value = error.message || "读取学生成绩分析失败";
+            } finally {
+                gradeAnalyticsLoading.value = false;
+            }
+        }
+
+        async function loadSensitiveAnalytics() {
+            sensitiveAnalyticsLoading.value = true;
+            sensitiveAnalyticsError.value = "";
+            try {
+                const { result } = await apiRequest("/api/analytics/sensitive");
+                sensitiveAnalytics.value = result.data || defaultSensitiveAnalytics();
+            } catch (error) {
+                sensitiveAnalytics.value = defaultSensitiveAnalytics();
+                sensitiveAnalyticsError.value = error.message || "读取敏感数据分析失败";
+            } finally {
+                sensitiveAnalyticsLoading.value = false;
+            }
+        }
+
         async function loadDataEntryOptions(force = false) {
             if (dataEntryOptionsLoading.value) {
                 return;
@@ -927,6 +1199,12 @@ createApp({
             if (!menuKey) {
                 return;
             }
+            if (menuKey === "student-data-center"
+                || menuKey === "analytics-center"
+                || menuKey === "security-center"
+                || menuKey === "system-management") {
+                return;
+            }
             if (menuKey === "dashboard") {
                 await loadHomeData();
                 return;
@@ -941,6 +1219,14 @@ createApp({
             }
             if (menuKey === "score") {
                 await loadStudentScores();
+                return;
+            }
+            if (menuKey === "grade-analytics") {
+                await loadGradeAnalytics();
+                return;
+            }
+            if (menuKey === "sensitive-analytics") {
+                await loadSensitiveAnalytics();
                 return;
             }
             if (menuKey === "masking-rule") {
@@ -977,8 +1263,22 @@ createApp({
         }
 
         async function activateMenu(menuKey) {
+            const targetMenu = findMenuNodeByKey(currentUser.value.menuTree || [], menuKey);
+            if (!targetMenu) {
+                return;
+            }
+            if (targetMenu.children && targetMenu.children.length > 0) {
+                toggleMenuGroup(menuKey);
+                return;
+            }
+            expandAncestorMenus(menuKey);
             activeMenu.value = menuKey;
             await loadSectionData(menuKey);
+        }
+
+        async function openProfileSection() {
+            activeMenu.value = "profile";
+            await loadSectionData("profile");
         }
 
         async function handlePrimaryAction() {
@@ -1924,6 +2224,9 @@ createApp({
             }
         });
 
+        onBeforeUnmount(() => {
+        });
+
         return {
             pageIcons,
             currentUser,
@@ -1937,6 +2240,7 @@ createApp({
             studentAvatarText,
             maskingHintText,
             flatMenus,
+            visibleMenus,
             flattenedPermissionTree,
             parentPermissionOptions,
             homeStats,
@@ -2002,6 +2306,12 @@ createApp({
             studentScoreError,
             studentScores,
             studentScoreQuery,
+            gradeAnalyticsLoading,
+            gradeAnalyticsError,
+            gradeAnalytics,
+            sensitiveAnalyticsLoading,
+            sensitiveAnalyticsError,
+            sensitiveAnalytics,
             maskingRuleLoading,
             maskingRuleError,
             maskingRulePage,
@@ -2030,14 +2340,23 @@ createApp({
             dataImportResult,
             currentDataImportMeta,
             can,
+            isMenuExpanded,
             resolveMenuIcon,
             formatDateTime,
             formatGender,
             formatRoleNames,
             formatStudentStatus,
+            formatAnalyticsNumber,
+            formatAnalyticsPercent,
+            rankingBarStyle,
+            distributionPercent,
+            distributionBarStyle,
+            countBarStyle,
+            coverageBarStyle,
             formatPermissionOption,
             toggleSidebar,
             activateMenu,
+            openProfileSection,
             handlePrimaryAction,
             searchUsers,
             resetUserSearch,
