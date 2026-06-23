@@ -6,8 +6,13 @@ UPDATE semester_info SET semester_name = '2024秋' WHERE id = 3;
 UPDATE semester_info SET semester_name = '2025春' WHERE id = 4;
 UPDATE semester_info SET semester_name = '2025秋' WHERE id = 5;
 
-UPDATE login_log SET login_message = '登录成功' WHERE login_message LIKE '閻%' OR login_message LIKE '鐧%';
-UPDATE login_log SET login_message = '用户名或密码错误' WHERE login_message LIKE '鐢ㄦ埛鍚嶆垨瀵嗙爜閿欒' OR id = 5;
+UPDATE login_log
+SET login_message = '登录成功'
+WHERE id IN (1, 2, 3, 4, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20);
+
+UPDATE login_log
+SET login_message = '用户名或密码错误'
+WHERE id = 5;
 
 UPDATE permission SET permission_name = '首页', description = '首页菜单' WHERE permission_code = 'menu:dashboard';
 UPDATE permission SET permission_name = '个人信息', description = '当前用户个人信息菜单' WHERE permission_code = 'menu:profile';

@@ -295,6 +295,10 @@
                             <button class="toolbar-button" type="button" @click="resetStudentProfileSearch">重置</button>
                             <button class="toolbar-button" type="button" @click="refreshStudentProfiles">刷新数据</button>
                         </div>
+                        <div v-if="can('sys:user:create')" class="toolbar-inline">
+                            <button class="toolbar-button primary" type="button" @click="openDataEntryModal('student')">新增学生</button>
+                            <button class="toolbar-button" type="button" @click="openDataImportModal('student')">Excel 批量导入</button>
+                        </div>
                     </div>
 
                     <div v-if="studentProfileLoading" class="state-block">
@@ -382,6 +386,11 @@
                             >
                             <button class="toolbar-button primary" type="button" @click="searchStudentScores">查询</button>
                             <button class="toolbar-button" type="button" @click="resetStudentScoreSearch">重置</button>
+                            <button class="toolbar-button" type="button" @click="loadStudentScores">刷新数据</button>
+                        </div>
+                        <div v-if="can('sys:user:create')" class="toolbar-inline">
+                            <button class="toolbar-button primary" type="button" @click="openDataEntryModal('score')">新增成绩</button>
+                            <button class="toolbar-button" type="button" @click="openDataImportModal('score')">Excel 批量导入</button>
                         </div>
                     </div>
 
@@ -532,7 +541,10 @@
                             <button class="toolbar-button primary" type="button" @click="searchUsers">查询</button>
                             <button class="toolbar-button" type="button" @click="resetUserSearch">重置</button>
                         </div>
-                        <button v-if="can('sys:user:create')" class="toolbar-button primary" type="button" @click="openCreateUserModal">新增用户</button>
+                        <div v-if="can('sys:user:create')" class="toolbar-inline">
+                            <button class="toolbar-button primary" type="button" @click="openCreateUserModal">新增用户</button>
+                            <button class="toolbar-button" type="button" @click="openDataImportModal('user')">Excel 批量导入</button>
+                        </div>
                     </div>
 
                     <div v-if="userLoading" class="state-block">
@@ -910,6 +922,225 @@
                     {{ studentEditSubmitting ? '提交中...' : '保存' }}
                 </button>
                 <button class="toolbar-button" type="button" @click="closeStudentEditModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showDataEntryModal" class="modal-mask" @click.self="closeDataEntryModal">
+        <section class="modal-card modal-card-lg">
+            <div class="modal-head">
+                <strong>{{ currentDataEntryMeta.createTitle }}</strong>
+                <button class="modal-close" type="button" @click="closeDataEntryModal">×</button>
+            </div>
+
+            <div v-if="dataEntryMode === 'user'" class="modal-body-stack">
+                <div class="form-grid">
+                    <label class="form-item">
+                        <span>用户名</span>
+                        <input v-model.trim="dataEntryForm.userName" class="toolbar-input" type="text" placeholder="请输入用户名">
+                    </label>
+                    <label class="form-item">
+                        <span>密码</span>
+                        <input v-model.trim="dataEntryForm.userPwd" class="toolbar-input" type="password" placeholder="请输入密码">
+                    </label>
+                    <label class="form-item">
+                        <span>手机号</span>
+                        <input v-model.trim="dataEntryForm.userPhonenum" class="toolbar-input" type="text" placeholder="请输入手机号">
+                    </label>
+                    <label class="form-item">
+                        <span>邮箱</span>
+                        <input v-model.trim="dataEntryForm.userEmail" class="toolbar-input" type="text" placeholder="请输入邮箱">
+                    </label>
+                    <label class="form-item form-item-wide">
+                        <span>头像地址</span>
+                        <input v-model.trim="dataEntryForm.userHeader" class="toolbar-input" type="text" placeholder="请输入头像地址">
+                    </label>
+                </div>
+
+                <div class="panel-subsection">
+                    <strong>分配角色</strong>
+                    <div class="checkbox-grid">
+                        <label v-for="role in dataEntryOptions.roles" :key="`entry-role-${role.id}`" class="checkbox-item">
+                            <input v-model="dataEntryForm.roleIds" type="checkbox" :value="role.id">
+                            <span>{{ role.roleName }} <small>{{ role.roleCode }}</small></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div v-else-if="dataEntryMode === 'student'" class="modal-body-stack">
+                <div class="form-grid">
+                    <label class="form-item">
+                        <span>学号</span>
+                        <input v-model.trim="dataEntryForm.studentNo" class="toolbar-input" type="text" placeholder="请输入学号">
+                    </label>
+                    <label class="form-item">
+                        <span>姓名</span>
+                        <input v-model.trim="dataEntryForm.name" class="toolbar-input" type="text" placeholder="请输入姓名">
+                    </label>
+                    <label class="form-item">
+                        <span>性别</span>
+                        <select v-model="dataEntryForm.gender" class="toolbar-input">
+                            <option value="M">男</option>
+                            <option value="F">女</option>
+                        </select>
+                    </label>
+                    <label class="form-item">
+                        <span>出生日期</span>
+                        <input v-model.trim="dataEntryForm.birthDate" class="toolbar-input" type="date">
+                    </label>
+                    <label class="form-item form-item-wide">
+                        <span>班级</span>
+                        <select v-model="dataEntryForm.classId" class="toolbar-input">
+                            <option value="">请选择班级</option>
+                            <option v-for="item in dataEntryOptions.classes" :key="`entry-class-${item.id}`" :value="String(item.id)">
+                                {{ item.className }}（{{ item.classCode }}）
+                            </option>
+                        </select>
+                    </label>
+                    <label class="form-item">
+                        <span>手机号</span>
+                        <input v-model.trim="dataEntryForm.phone" class="toolbar-input" type="text" placeholder="请输入手机号">
+                    </label>
+                    <label class="form-item">
+                        <span>邮箱</span>
+                        <input v-model.trim="dataEntryForm.email" class="toolbar-input" type="text" placeholder="请输入邮箱">
+                    </label>
+                    <label class="form-item">
+                        <span>身份证号</span>
+                        <input v-model.trim="dataEntryForm.idCard" class="toolbar-input" type="text" placeholder="请输入身份证号">
+                    </label>
+                    <label class="form-item">
+                        <span>家庭收入</span>
+                        <input v-model.trim="dataEntryForm.familyIncome" class="toolbar-input" type="number" min="0" step="0.01" placeholder="请输入家庭收入">
+                    </label>
+                    <label class="form-item">
+                        <span>银行卡号</span>
+                        <input v-model.trim="dataEntryForm.bankCard" class="toolbar-input" type="text" placeholder="请输入银行卡号">
+                    </label>
+                    <label class="form-item form-item-wide">
+                        <span>住址</span>
+                        <input v-model.trim="dataEntryForm.address" class="toolbar-input" type="text" placeholder="请输入住址">
+                    </label>
+                </div>
+            </div>
+
+            <div v-else class="modal-body-stack">
+                <div class="form-grid">
+                    <label class="form-item">
+                        <span>学号</span>
+                        <input v-model.trim="dataEntryForm.scoreStudentNo" class="toolbar-input" type="text" placeholder="请输入学号">
+                    </label>
+                    <label class="form-item">
+                        <span>成绩</span>
+                        <input v-model.trim="dataEntryForm.score" class="toolbar-input" type="number" min="0" max="100" step="0.01" placeholder="请输入成绩">
+                    </label>
+                    <label class="form-item">
+                        <span>课程</span>
+                        <select v-model="dataEntryForm.courseId" class="toolbar-input">
+                            <option value="">请选择课程</option>
+                            <option v-for="item in dataEntryOptions.courses" :key="`entry-course-${item.id}`" :value="String(item.id)">
+                                {{ item.courseName }}（{{ item.courseCode }}）
+                            </option>
+                        </select>
+                    </label>
+                    <label class="form-item">
+                        <span>学期</span>
+                        <select v-model="dataEntryForm.semesterId" class="toolbar-input">
+                            <option value="">请选择学期</option>
+                            <option v-for="item in dataEntryOptions.semesters" :key="`entry-semester-${item.id}`" :value="String(item.id)">
+                                {{ item.semesterName }}
+                            </option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <p v-if="dataEntryFormError" class="form-error">{{ dataEntryFormError }}</p>
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitDataEntryForm" :disabled="dataEntrySubmitting || dataEntryOptionsLoading">
+                    {{ dataEntrySubmitting ? '提交中...' : '保存' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closeDataEntryModal">取消</button>
+            </div>
+        </section>
+    </div>
+
+    <div v-if="showDataImportModal" class="modal-mask" @click.self="closeDataImportModal">
+        <section class="modal-card modal-card-lg">
+            <div class="modal-head">
+                <strong>{{ currentDataImportMeta.importTitle }}</strong>
+                <button class="modal-close" type="button" @click="closeDataImportModal">×</button>
+            </div>
+
+            <div class="modal-body-stack">
+                <div class="import-guide-card">
+                    <strong>导入说明</strong>
+                    <p>{{ currentDataImportMeta.importHint }}</p>
+                    <div class="badge-wrap">
+                        <span v-for="header in currentDataImportMeta.headers" :key="`import-header-${currentDataImportMeta.menuKey}-${header}`" class="pill-badge">
+                            {{ header }}
+                        </span>
+                    </div>
+                </div>
+
+                <label class="import-upload-box">
+                    <span>选择 Excel 文件</span>
+                    <input :key="dataImportInputKey" type="file" accept=".xlsx" @change="handleDataImportFileChange">
+                    <strong>{{ dataImportFileName || '尚未选择文件' }}</strong>
+                </label>
+
+                <p v-if="dataImportError" class="form-error">{{ dataImportError }}</p>
+
+                <div v-if="dataImportResult" class="import-result-card">
+                    <div class="detail-grid">
+                        <article class="detail-item">
+                            <span>总行数</span>
+                            <strong>{{ dataImportResult.totalRows ?? 0 }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>成功数</span>
+                            <strong>{{ dataImportResult.successCount ?? 0 }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>失败数</span>
+                            <strong>{{ dataImportResult.failureCount ?? 0 }}</strong>
+                        </article>
+                        <article class="detail-item">
+                            <span>导入类型</span>
+                            <strong>{{ dataImportResult.importType || '--' }}</strong>
+                        </article>
+                    </div>
+
+                    <div v-if="(dataImportResult.errors || []).length > 0" class="panel-subsection">
+                        <strong>失败明细</strong>
+                        <div class="table-scroll">
+                            <table class="system-table">
+                                <thead>
+                                <tr>
+                                    <th>行号</th>
+                                    <th>标识</th>
+                                    <th>原因</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr v-for="item in dataImportResult.errors" :key="`import-error-${item.rowNumber}-${item.identifier}`">
+                                    <td>{{ item.rowNumber }}</td>
+                                    <td>{{ item.identifier || '--' }}</td>
+                                    <td>{{ item.message || '--' }}</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="toolbar-inline modal-actions">
+                <button class="toolbar-button primary" type="button" @click="submitDataImport" :disabled="dataImportSubmitting">
+                    {{ dataImportSubmitting ? '导入中...' : '开始导入' }}
+                </button>
+                <button class="toolbar-button" type="button" @click="closeDataImportModal">关闭</button>
             </div>
         </section>
     </div>

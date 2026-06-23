@@ -107,6 +107,40 @@ const ROLE_ANALYST = "ANALYST";
 const ROLE_NORMAL = "NORMAL";
 const ROLE_STUDENT = "STUDENT";
 
+const DATA_ENTRY_TYPE_USER = "user";
+const DATA_ENTRY_TYPE_STUDENT = "student";
+const DATA_ENTRY_TYPE_SCORE = "score";
+
+const dataEntryMeta = {
+    [DATA_ENTRY_TYPE_USER]: {
+        label: "用户",
+        createTitle: "新增用户",
+        importTitle: "批量导入用户",
+        menuKey: "user",
+        successMessage: "用户创建成功",
+        importHint: "请上传 .xlsx 文件，首行表头需与系统约定完全一致。角色编码支持多个值，使用逗号分隔。",
+        headers: ["用户名", "密码", "手机号", "邮箱", "头像地址", "角色编码"]
+    },
+    [DATA_ENTRY_TYPE_STUDENT]: {
+        label: "学生",
+        createTitle: "新增学生",
+        importTitle: "批量导入学生",
+        menuKey: "student",
+        successMessage: "学生信息创建成功",
+        importHint: "班级需填写班级代码，出生日期格式为 yyyy-MM-dd，家庭收入可填写小数。",
+        headers: ["学号", "姓名", "性别", "出生日期", "班级代码", "手机号", "邮箱", "身份证号", "住址", "家庭收入", "银行卡号"]
+    },
+    [DATA_ENTRY_TYPE_SCORE]: {
+        label: "成绩",
+        createTitle: "新增成绩",
+        importTitle: "批量导入成绩",
+        menuKey: "score",
+        successMessage: "成绩保存成功",
+        importHint: "课程请填写课程代码，学期请填写学期名称。若同一学号、课程、学期已存在记录，系统会直接更新成绩。",
+        headers: ["学号", "课程代码", "学期名称", "成绩"]
+    }
+};
+
 const defaultPageData = () => ({
     records: [],
     total: 0,
@@ -296,6 +330,49 @@ createApp({
             courseName: "",
             semesterName: ""
         });
+        const dataEntryOptionsLoading = ref(false);
+        const dataEntryOptionsLoaded = ref(false);
+        const dataEntryOptions = reactive({
+            roles: [],
+            classes: [],
+            courses: [],
+            semesters: []
+        });
+        const showDataEntryModal = ref(false);
+        const dataEntrySubmitting = ref(false);
+        const dataEntryFormError = ref("");
+        const dataEntryMode = ref(DATA_ENTRY_TYPE_USER);
+        const dataEntryForm = reactive({
+            userName: "",
+            userPwd: "",
+            userPhonenum: "",
+            userEmail: "",
+            userHeader: "",
+            roleIds: [],
+            studentNo: "",
+            name: "",
+            gender: "M",
+            birthDate: "",
+            classId: "",
+            phone: "",
+            email: "",
+            idCard: "",
+            address: "",
+            familyIncome: "",
+            bankCard: "",
+            scoreStudentNo: "",
+            courseId: "",
+            semesterId: "",
+            score: ""
+        });
+        const showDataImportModal = ref(false);
+        const dataImportSubmitting = ref(false);
+        const dataImportError = ref("");
+        const dataImportMode = ref(DATA_ENTRY_TYPE_USER);
+        const dataImportFile = ref(null);
+        const dataImportFileName = ref("");
+        const dataImportInputKey = ref(0);
+        const dataImportResult = ref(null);
         const maskingRuleLoading = ref(false);
         const maskingRuleError = ref("");
         const maskingRulePage = ref(defaultPageData());
@@ -384,6 +461,8 @@ createApp({
         const selectedMaskingRulePolicy = computed(() =>
             (maskingRuleForm.availablePolicies || []).find((item) => String(item.policyId) === String(maskingRuleForm.policyId)) || null
         );
+        const currentDataEntryMeta = computed(() => dataEntryMeta[dataEntryMode.value] || dataEntryMeta[DATA_ENTRY_TYPE_USER]);
+        const currentDataImportMeta = computed(() => dataEntryMeta[dataImportMode.value] || dataEntryMeta[DATA_ENTRY_TYPE_USER]);
 
         const currentSection = computed(() => sectionMap[activeMenu.value] || {
             title: "控制台",
@@ -697,6 +776,45 @@ createApp({
             }
         }
 
+        async function loadDataEntryOptions(force = false) {
+            if (dataEntryOptionsLoading.value) {
+                return;
+            }
+            if (dataEntryOptionsLoaded.value && !force) {
+                return;
+            }
+            dataEntryOptionsLoading.value = true;
+            try {
+                const { result } = await apiRequest("/api/data-entry/options");
+                dataEntryOptions.roles = result.data?.roles || [];
+                dataEntryOptions.classes = result.data?.classes || [];
+                dataEntryOptions.courses = result.data?.courses || [];
+                dataEntryOptions.semesters = result.data?.semesters || [];
+                dataEntryOptionsLoaded.value = true;
+            } finally {
+                dataEntryOptionsLoading.value = false;
+            }
+        }
+
+        async function refreshDataListByType(type) {
+            if (type === DATA_ENTRY_TYPE_USER) {
+                userQuery.page = 1;
+                await loadUsers();
+                await refreshContext(false);
+                if (activeMenu.value === "dashboard") {
+                    await loadHomeData();
+                }
+                return;
+            }
+            if (type === DATA_ENTRY_TYPE_STUDENT) {
+                await loadStudentProfiles();
+                return;
+            }
+            if (type === DATA_ENTRY_TYPE_SCORE) {
+                await loadStudentScores();
+            }
+        }
+
         async function loadMaskingRuleOptions() {
             const { result } = await apiRequest("/api/masking-rules/options");
             maskingRuleRoleOptions.value = result.data?.roles || [];
@@ -768,6 +886,18 @@ createApp({
 
         async function handlePrimaryAction() {
             if (activeMenu.value) {
+                if (activeMenu.value === "user" && can("sys:user:create")) {
+                    await openDataEntryModal(DATA_ENTRY_TYPE_USER);
+                    return;
+                }
+                if (activeMenu.value === "student" && can("sys:user:create")) {
+                    await openDataEntryModal(DATA_ENTRY_TYPE_STUDENT);
+                    return;
+                }
+                if (activeMenu.value === "score" && can("sys:user:create")) {
+                    await openDataEntryModal(DATA_ENTRY_TYPE_SCORE);
+                    return;
+                }
                 await loadSectionData(activeMenu.value);
             }
         }
@@ -815,6 +945,182 @@ createApp({
             studentScoreQuery.courseName = "";
             studentScoreQuery.semesterName = "";
             await loadStudentScores();
+        }
+
+        function resetDataEntryForm() {
+            dataEntryForm.userName = "";
+            dataEntryForm.userPwd = "";
+            dataEntryForm.userPhonenum = "";
+            dataEntryForm.userEmail = "";
+            dataEntryForm.userHeader = "";
+            dataEntryForm.roleIds = [];
+            dataEntryForm.studentNo = "";
+            dataEntryForm.name = "";
+            dataEntryForm.gender = "M";
+            dataEntryForm.birthDate = "";
+            dataEntryForm.classId = "";
+            dataEntryForm.phone = "";
+            dataEntryForm.email = "";
+            dataEntryForm.idCard = "";
+            dataEntryForm.address = "";
+            dataEntryForm.familyIncome = "";
+            dataEntryForm.bankCard = "";
+            dataEntryForm.scoreStudentNo = "";
+            dataEntryForm.courseId = "";
+            dataEntryForm.semesterId = "";
+            dataEntryForm.score = "";
+            dataEntryFormError.value = "";
+        }
+
+        async function openDataEntryModal(type) {
+            dataEntryMode.value = type;
+            resetDataEntryForm();
+            if (type !== DATA_ENTRY_TYPE_USER || can("sys:role:view")) {
+                await loadDataEntryOptions();
+            }
+            showDataEntryModal.value = true;
+        }
+
+        function closeDataEntryModal() {
+            showDataEntryModal.value = false;
+            dataEntrySubmitting.value = false;
+            resetDataEntryForm();
+        }
+
+        function buildDataEntryPayload() {
+            if (dataEntryMode.value === DATA_ENTRY_TYPE_USER) {
+                if (!dataEntryForm.userName) {
+                    throw new Error("请输入用户名");
+                }
+                if (!dataEntryForm.userPwd) {
+                    throw new Error("请输入密码");
+                }
+                return {
+                    url: "/api/users",
+                    payload: {
+                        userName: dataEntryForm.userName,
+                        userPwd: dataEntryForm.userPwd,
+                        userHeader: dataEntryForm.userHeader || null,
+                        userPhonenum: dataEntryForm.userPhonenum || null,
+                        userEmail: dataEntryForm.userEmail || null,
+                        roleIds: dataEntryForm.roleIds || []
+                    }
+                };
+            }
+            if (dataEntryMode.value === DATA_ENTRY_TYPE_STUDENT) {
+                if (!dataEntryForm.studentNo || !dataEntryForm.name || !dataEntryForm.gender || !dataEntryForm.classId) {
+                    throw new Error("请完整填写学号、姓名、性别和班级");
+                }
+                return {
+                    url: "/api/students",
+                    payload: {
+                        studentNo: dataEntryForm.studentNo,
+                        name: dataEntryForm.name,
+                        gender: dataEntryForm.gender,
+                        birthDate: dataEntryForm.birthDate || null,
+                        classId: Number(dataEntryForm.classId),
+                        status: 1,
+                        phone: dataEntryForm.phone || null,
+                        email: dataEntryForm.email || null,
+                        idCard: dataEntryForm.idCard || null,
+                        address: dataEntryForm.address || null,
+                        familyIncome: dataEntryForm.familyIncome === "" ? null : Number(dataEntryForm.familyIncome),
+                        bankCard: dataEntryForm.bankCard || null
+                    }
+                };
+            }
+            if (!dataEntryForm.scoreStudentNo || !dataEntryForm.courseId || !dataEntryForm.semesterId || dataEntryForm.score === "") {
+                throw new Error("请完整填写学号、课程、学期和成绩");
+            }
+            return {
+                url: "/api/students/scores",
+                payload: {
+                    studentNo: dataEntryForm.scoreStudentNo,
+                    courseId: Number(dataEntryForm.courseId),
+                    semesterId: Number(dataEntryForm.semesterId),
+                    score: Number(dataEntryForm.score)
+                }
+            };
+        }
+
+        async function submitDataEntryForm() {
+            dataEntrySubmitting.value = true;
+            dataEntryFormError.value = "";
+            try {
+                const { url, payload } = buildDataEntryPayload();
+                await apiRequest(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+                closeDataEntryModal();
+                await refreshDataListByType(dataEntryMode.value);
+                window.alert((dataEntryMeta[dataEntryMode.value] || {}).successMessage || "保存成功");
+            } catch (error) {
+                dataEntryFormError.value = error.message || "提交失败";
+            } finally {
+                dataEntrySubmitting.value = false;
+            }
+        }
+
+        function resetDataImportState() {
+            dataImportError.value = "";
+            dataImportFile.value = null;
+            dataImportFileName.value = "";
+            dataImportResult.value = null;
+            dataImportInputKey.value += 1;
+        }
+
+        function openDataImportModal(type) {
+            dataImportMode.value = type;
+            resetDataImportState();
+            showDataImportModal.value = true;
+        }
+
+        function closeDataImportModal() {
+            showDataImportModal.value = false;
+            dataImportSubmitting.value = false;
+            resetDataImportState();
+        }
+
+        function handleDataImportFileChange(event) {
+            const file = event?.target?.files?.[0] || null;
+            dataImportFile.value = file;
+            dataImportFileName.value = file ? file.name : "";
+            dataImportError.value = "";
+            dataImportResult.value = null;
+        }
+
+        async function submitDataImport() {
+            if (!dataImportFile.value) {
+                dataImportError.value = "请先选择要导入的 Excel 文件";
+                return;
+            }
+            dataImportSubmitting.value = true;
+            dataImportError.value = "";
+            try {
+                const formData = new FormData();
+                formData.append("file", dataImportFile.value);
+                const response = await authorizedFetch(`/api/import/${dataImportMode.value}`, {
+                    method: "POST",
+                    body: formData
+                });
+                const result = await parseResult(response);
+                if (!result) {
+                    return;
+                }
+                if (!response.ok || (result.code !== 200 && result.code !== 201)) {
+                    throw new Error(result.message || "导入失败");
+                }
+                dataImportResult.value = result.data || null;
+                await refreshDataListByType(dataImportMode.value);
+            } catch (error) {
+                dataImportError.value = error.message || "导入失败";
+            } finally {
+                dataImportSubmitting.value = false;
+            }
         }
 
         async function searchMaskingRules() {
@@ -904,8 +1210,7 @@ createApp({
         }
 
         function openCreateUserModal() {
-            resetUserForm();
-            showUserModal.value = true;
+            openDataEntryModal(DATA_ENTRY_TYPE_USER);
         }
 
         function openEditUserModal(user) {
@@ -1521,6 +1826,22 @@ createApp({
             maskingRuleFormError,
             maskingRuleForm,
             selectedMaskingRulePolicy,
+            dataEntryOptionsLoading,
+            dataEntryOptions,
+            showDataEntryModal,
+            dataEntrySubmitting,
+            dataEntryFormError,
+            dataEntryMode,
+            dataEntryForm,
+            currentDataEntryMeta,
+            showDataImportModal,
+            dataImportSubmitting,
+            dataImportError,
+            dataImportMode,
+            dataImportFileName,
+            dataImportInputKey,
+            dataImportResult,
+            currentDataImportMeta,
             can,
             resolveMenuIcon,
             formatDateTime,
@@ -1538,6 +1859,7 @@ createApp({
             refreshStudentProfiles,
             resetStudentProfileSearch,
             searchStudentScores,
+            loadStudentScores,
             resetStudentScoreSearch,
             searchMaskingRules,
             resetMaskingRuleSearch,
@@ -1550,6 +1872,13 @@ createApp({
             closeUserModal,
             submitUserForm,
             deleteUser,
+            openDataEntryModal,
+            closeDataEntryModal,
+            submitDataEntryForm,
+            openDataImportModal,
+            closeDataImportModal,
+            handleDataImportFileChange,
+            submitDataImport,
             loadRoles,
             resetRoleSearch,
             openCreateRoleModal,

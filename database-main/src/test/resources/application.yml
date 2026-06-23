@@ -7,7 +7,7 @@ spring:
   sql:
     init:
       encoding: UTF-8
-      mode: always
+      mode: never
       schema-locations: classpath:schema.sql,classpath:schema-routines.sql,classpath:schema-post-data.sql,classpath:schema-runtime-sync.sql
 
 mybatis:
@@ -19,3 +19,9 @@ mybatis:
 jwt:
   secret: stu-info-2026-security-jwt-secret-key-for-spring-security
   expiration-minutes: 720
+
+app:
+  database:
+    bootstrap:
+      initialize-on-empty: true
+      runtime-sync-on-startup: true

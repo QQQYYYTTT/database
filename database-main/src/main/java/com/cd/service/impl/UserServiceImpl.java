@@ -114,6 +114,14 @@ public class UserServiceImpl implements UserService {
         return userMapper.deleteById(id) > 0;
     }
 
+    @Override
+    public UserEntity findEntityByUserName(String userName) {
+        if (!StringUtils.hasText(userName)) {
+            return null;
+        }
+        return userMapper.selectEntityByUserName(userName.trim());
+    }
+
     private void fillRoles(UserResponse user) {
         List<RoleOptionResponse> roles = roleMapper.selectRolesByUserId(user.getId());
         user.setRoles(roles);

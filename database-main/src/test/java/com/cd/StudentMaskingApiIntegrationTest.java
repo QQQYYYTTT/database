@@ -175,17 +175,20 @@ class StudentMaskingApiIntegrationTest {
              var disableTeacher = connection.prepareStatement("UPDATE role SET enabled = 0 WHERE role_code = 'TEACHER'");
              var restoreTeacher = connection.prepareStatement("UPDATE role SET enabled = 1 WHERE role_code = 'TEACHER'")) {
             disableTeacher.executeUpdate();
-            teacherToken = tokenFor("mask_teacher");
+            try {
+                teacherToken = tokenFor("mask_teacher");
 
-            JsonNode root = readBody(mockMvc.perform(
-                            get("/api/student-profiles")
-                                    .header("Authorization", bearer(teacherToken)))
-                    .andExpect(status().isBadRequest())
-                    .andReturn());
+                JsonNode root = readBody(mockMvc.perform(
+                                get("/api/student-profiles")
+                                        .header("Authorization", bearer(teacherToken)))
+                        .andExpect(status().isBadRequest())
+                        .andReturn());
 
-            assertEquals(400, root.path("code").asInt());
-            assertTrue(root.path("message").asText().contains("角色不存在或已禁用"));
-            restoreTeacher.executeUpdate();
+                assertEquals(400, root.path("code").asInt());
+                assertTrue(root.path("message").asText().contains("角色不存在或已禁用"));
+            } finally {
+                restoreTeacher.executeUpdate();
+            }
         }
     }
 

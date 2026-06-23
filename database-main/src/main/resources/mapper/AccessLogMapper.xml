@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cd.mapper.AccessLogMapper">
+
+    <resultMap id="AccessLogResponseResultMap" type="com.cd.dto.AccessLogResponse">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userName" column="user_name"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="operationType" column="operation_type"/>
+        <result property="tableName" column="table_name"/>
+        <result property="sensitiveColumns" column="sensitive_columns"/>
+        <result property="maskingApplied" column="masking_applied"/>
+        <result property="accessTime" column="access_time"/>
+    </resultMap>
+
+    <sql id="AccessLogQueryCondition">
+        <if test="userName != null and userName != ''">
+            AND u.user_name LIKE CONCAT('%', #{userName}, '%')
+        </if>
+        <if test="roleCode != null and roleCode != ''">
+            AND al.role_code = #{roleCode}
+        </if>
+        <if test="operationType != null and operationType != ''">
+            AND al.operation_type = #{operationType}
+        </if>
+    </sql>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(1)
+        FROM access_log al
+        LEFT JOIN user u ON u.id = al.user_id
+        <where>
+            <include refid="AccessLogQueryCondition"/>
+        </where>
+    </select>
+
+    <select id="selectPage" resultMap="AccessLogResponseResultMap">
+        SELECT
+            al.id,
+            al.user_id,
+            u.user_name,
+            al.role_code,
+            al.operation_type,
+            al.table_name,
+            al.sensitive_columns,
+            al.masking_applied,
+            al.access_time
+        FROM access_log al
+        LEFT JOIN user u ON u.id = al.user_id
+        <where>
+            <include refid="AccessLogQueryCondition"/>
+        </where>
+        ORDER BY al.id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+</mapper>

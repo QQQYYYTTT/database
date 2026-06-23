@@ -22,7 +22,7 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 class DynamicMaskingDatabaseInspectionTest {
 
     private static final String JDBC_URL =
-            "jdbc:mysql://127.0.0.1:3306/stu_info2026_test?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8";
+            "jdbc:mysql://127.0.0.1:3306/stu_info2026_inspect?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8";
     private static final String JDBC_USER = "root";
     private static final String JDBC_PASSWORD = "root";
 

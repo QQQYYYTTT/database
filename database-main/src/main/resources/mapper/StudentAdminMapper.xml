@@ -41,6 +41,27 @@
         <result property="bankCard" column="bank_card"/>
     </resultMap>
 
+    <resultMap id="ClassOptionResultMap" type="com.cd.dto.ClassOptionResponse">
+        <id property="id" column="id"/>
+        <result property="classCode" column="class_code"/>
+        <result property="className" column="class_name"/>
+        <result property="gradeName" column="grade_name"/>
+        <result property="majorName" column="major_name"/>
+    </resultMap>
+
+    <resultMap id="CourseOptionResultMap" type="com.cd.dto.CourseOptionResponse">
+        <id property="id" column="id"/>
+        <result property="courseCode" column="course_code"/>
+        <result property="courseName" column="course_name"/>
+    </resultMap>
+
+    <resultMap id="SemesterOptionResultMap" type="com.cd.dto.SemesterOptionResponse">
+        <id property="id" column="id"/>
+        <result property="semesterName" column="semester_name"/>
+        <result property="schoolYear" column="school_year"/>
+        <result property="termNo" column="term_no"/>
+    </resultMap>
+
     <select id="selectCurrentStudentProfile" resultMap="StudentSelfProfileResultMap">
         SELECT s.id AS student_id,
                s.student_no,
@@ -75,6 +96,85 @@
         LIMIT 1
     </select>
 
+    <select id="selectStudentIdByStudentNo" resultType="long">
+        SELECT id
+        FROM student
+        WHERE student_no = #{studentNo}
+        LIMIT 1
+    </select>
+
+    <select id="selectClassIdByClassCode" resultType="long">
+        SELECT id
+        FROM class_info
+        WHERE class_code = #{classCode}
+        LIMIT 1
+    </select>
+
+    <select id="selectCourseIdByCourseCode" resultType="long">
+        SELECT id
+        FROM course
+        WHERE course_code = #{courseCode}
+        LIMIT 1
+    </select>
+
+    <select id="selectSemesterIdBySemesterName" resultType="long">
+        SELECT id
+        FROM semester_info
+        WHERE semester_name = #{semesterName}
+        LIMIT 1
+    </select>
+
+    <select id="selectScoreId" resultType="long">
+        SELECT id
+        FROM student_score
+        WHERE student_id = #{studentId}
+          AND course_id = #{courseId}
+          AND semester_id = #{semesterId}
+        LIMIT 1
+    </select>
+
+    <select id="countClassById" resultType="int">
+        SELECT COUNT(1)
+        FROM class_info
+        WHERE id = #{classId}
+    </select>
+
+    <select id="countCourseById" resultType="int">
+        SELECT COUNT(1)
+        FROM course
+        WHERE id = #{courseId}
+    </select>
+
+    <select id="countSemesterById" resultType="int">
+        SELECT COUNT(1)
+        FROM semester_info
+        WHERE id = #{semesterId}
+    </select>
+
+    <select id="selectClassOptions" resultMap="ClassOptionResultMap">
+        SELECT ci.id,
+               ci.class_code,
+               ci.class_name,
+               gi.grade_name,
+               m.major_name
+        FROM class_info ci
+        JOIN grade_info gi ON gi.id = ci.grade_id
+        JOIN major m ON m.id = ci.major_id
+        ORDER BY gi.entry_year DESC, ci.class_code ASC
+    </select>
+
+    <select id="selectCourseOptions" resultMap="CourseOptionResultMap">
+        SELECT id, course_code, course_name
+        FROM course
+        ORDER BY course_code ASC
+    </select>
+
+    <select id="selectSemesterOptions" resultMap="SemesterOptionResultMap">
+        SELECT id, semester_name, school_year, term_no
+        FROM semester_info
+        ORDER BY id ASC
+    </select>
+
     <select id="selectStudentProfileSnapshotById" resultMap="StudentProfileSnapshotResultMap">
         SELECT v.student_id,
                v.student_no,
@@ -97,6 +197,31 @@
         WHERE v.student_id = #{studentId}
         LIMIT 1
     </select>
+
+    <insert id="insertStudent" useGeneratedKeys="true" keyProperty="request.studentId">
+        INSERT INTO student (class_id, student_no, name, gender, birth_date, status)
+        VALUES (
+            #{request.classId},
+            #{request.studentNo},
+            #{request.name},
+            #{request.gender},
+            NULLIF(#{request.birthDate}, ''),
+            COALESCE(#{request.status}, 1)
+        )
+    </insert>
+
+    <insert id="insertStudentSensitive">
+        INSERT INTO student_sensitive (student_id, phone, email, id_card, address, family_income, bank_card)
+        VALUES (
+            #{studentId},
+            NULLIF(#{request.phone}, ''),
+            NULLIF(#{request.email}, ''),
+            NULLIF(#{request.idCard}, ''),
+            NULLIF(#{request.address}, ''),
+            #{request.familyIncome},
+            NULLIF(#{request.bankCard}, '')
+        )
+    </insert>
 
     <update id="updateStudentBasicById">
         UPDATE student
@@ -130,5 +255,16 @@
         DELETE FROM student
         WHERE id = #{studentId}
     </delete>
+
+    <insert id="insertStudentScore">
+        INSERT INTO student_score (student_id, course_id, semester_id, score)
+        VALUES (#{studentId}, #{request.courseId}, #{request.semesterId}, #{request.score})
+    </insert>
+
+    <update id="updateStudentScoreById">
+        UPDATE student_score
+        SET score = #{request.score}
+        WHERE id = #{scoreId}
+    </update>
 
 </mapper>

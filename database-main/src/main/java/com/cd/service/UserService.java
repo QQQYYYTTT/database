@@ -4,6 +4,7 @@ import com.cd.dto.PageResponse;
 import com.cd.dto.UserCreateRequest;
 import com.cd.dto.UserResponse;
 import com.cd.dto.UserUpdateRequest;
+import com.cd.entity.UserEntity;
 import java.util.Optional;
 
 public interface UserService {
@@ -17,4 +18,6 @@ public interface UserService {
     Optional<UserResponse> update(Long id, UserUpdateRequest request);
 
     boolean delete(Long id);
+
+    UserEntity findEntityByUserName(String userName);
 }

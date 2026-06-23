@@ -24,3 +24,9 @@ server:
 jwt:
   secret: stu-info-2026-security-jwt-secret-key-for-spring-security
   expiration-minutes: 720
+
+app:
+  database:
+    bootstrap:
+      initialize-on-empty: false
+      runtime-sync-on-startup: true

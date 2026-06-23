@@ -4,9 +4,44 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.cd.mapper.RuleChangeLogMapper">
 
+    <resultMap id="RuleChangeLogResponseResultMap" type="com.cd.dto.RuleChangeLogResponse">
+        <id property="id" column="id"/>
+        <result property="policyId" column="policy_id"/>
+        <result property="operatorName" column="operator_name"/>
+        <result property="operationType" column="operation_type"/>
+        <result property="beforeContent" column="before_content"/>
+        <result property="afterContent" column="after_content"/>
+        <result property="operateTime" column="operate_time"/>
+    </resultMap>
+
+    <sql id="RuleChangeLogQueryCondition">
+        operation_type IN ('MASKING_RULE_UPDATE', 'MASKING_RULE_RESTORE')
+        <if test="operatorName != null and operatorName != ''">
+            AND operator_name LIKE CONCAT('%', #{operatorName}, '%')
+        </if>
+    </sql>
+
     <insert id="insert" parameterType="com.cd.entity.RuleChangeLogEntity" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO rule_change_log (policy_id, operator_name, operation_type, before_content, after_content, operate_time)
         VALUES (#{policyId}, #{operatorName}, #{operationType}, #{beforeContent}, #{afterContent}, #{operateTime})
     </insert>
+
+    <select id="countRuleChanges" resultType="long">
+        SELECT COUNT(1)
+        FROM rule_change_log
+        <where>
+            <include refid="RuleChangeLogQueryCondition"/>
+        </where>
+    </select>
+
+    <select id="selectRuleChangesPage" resultMap="RuleChangeLogResponseResultMap">
+        SELECT id, policy_id, operator_name, operation_type, before_content, after_content, operate_time
+        FROM rule_change_log
+        <where>
+            <include refid="RuleChangeLogQueryCondition"/>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{size}
+    </select>
 
 </mapper>

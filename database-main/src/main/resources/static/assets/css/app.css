@@ -1149,6 +1149,56 @@ textarea {
     margin-top: 8px;
 }
 
+.modal-body-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.import-guide-card {
+    padding: 14px 16px;
+    border: 1px solid #d8e6ff;
+    background: #f7fbff;
+}
+
+.import-guide-card strong {
+    display: block;
+    color: #1f4f9e;
+    font-size: 14px;
+}
+
+.import-guide-card p {
+    margin: 8px 0 0;
+    color: #516786;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.import-upload-box {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px dashed #b8cae8;
+    background: #fbfdff;
+    color: #4a5c77;
+}
+
+.import-upload-box span {
+    color: var(--text-sub);
+    font-size: 12px;
+}
+
+.import-upload-box strong {
+    color: #22324b;
+    font-size: 14px;
+    line-height: 1.6;
+    word-break: break-all;
+}
+
+.import-result-card {
+    display: grid;
+    gap: 14px;
+}
+
 @media (max-width: 1320px) {
     .login-shell {
         grid-template-columns: 1fr;

@@ -74,11 +74,11 @@ CREATE TABLE `class_info` (
 LOCK TABLES `class_info` WRITE;
 /*!40000 ALTER TABLE `class_info` DISABLE KEYS */;
 INSERT INTO `class_info` VALUES
-(1,1,1,'CS2301','璁＄畻鏈虹瀛�2301鐝�'),
-(2,2,1,'NS2301','缃戝畨2301鐝�'),
-(3,3,2,'EI2401','鐢靛瓙淇℃伅2401鐝�'),
-(4,4,3,'AI2501','浜哄伐鏅鸿兘2501鐝�'),
-(5,5,4,'LAW2601','娉曞2601鐝�');
+(1,1,1,'CS2301','计算机科学2301班'),
+(2,2,1,'NS2301','网安2301班'),
+(3,3,2,'EI2401','电子信息2401班'),
+(4,4,3,'AI2501','人工智能2501班'),
+(5,5,4,'LAW2601','法学2601班');
 /*!40000 ALTER TABLE `class_info` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `college`;
@@ -96,11 +96,11 @@ CREATE TABLE `college` (
 LOCK TABLES `college` WRITE;
 /*!40000 ALTER TABLE `college` DISABLE KEYS */;
 INSERT INTO `college` VALUES
-(1,'C01','璁＄畻鏈哄闄�'),
-(2,'C02','缃戠粶绌洪棿瀹夊叏瀛﹂櫌'),
-(3,'C03','鐢靛瓙淇℃伅瀛﹂櫌'),
-(4,'C04','浜哄伐鏅鸿兘瀛﹂櫌'),
-(5,'C05','娉曞闄�');
+(1,'C01','计算机学院'),
+(2,'C02','网络空间安全学院'),
+(3,'C03','电子信息学院'),
+(4,'C04','人工智能学院'),
+(5,'C05','法学院');
 /*!40000 ALTER TABLE `college` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `course`;
@@ -119,11 +119,11 @@ CREATE TABLE `course` (
 LOCK TABLES `course` WRITE;
 /*!40000 ALTER TABLE `course` DISABLE KEYS */;
 INSERT INTO `course` VALUES
-(1,'C001','鏁版嵁缁撴瀯',4.0),
-(2,'C002','鎿嶄綔绯荤粺',3.5),
-(3,'C003','璁＄畻鏈虹綉缁�',3.5),
-(4,'C004','鏁版嵁搴撶郴缁�',4.0),
-(5,'C005','淇℃伅瀹夊叏瀵艰',3.0);
+(1,'C001','数据结构',4.0),
+(2,'C002','操作系统',3.5),
+(3,'C003','计算机网络',3.5),
+(4,'C004','数据库系统',4.0),
+(5,'C005','信息安全导论',3.0);
 /*!40000 ALTER TABLE `course` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `grade_info`;
@@ -142,11 +142,11 @@ CREATE TABLE `grade_info` (
 LOCK TABLES `grade_info` WRITE;
 /*!40000 ALTER TABLE `grade_info` DISABLE KEYS */;
 INSERT INTO `grade_info` VALUES
-(1,'2023绾�',2023),
-(2,'2024绾�',2024),
-(3,'2025绾�',2025),
-(4,'2026绾�',2026),
-(5,'2027绾�',2027);
+(1,'2023级',2023),
+(2,'2024级',2024),
+(3,'2025级',2025),
+(4,'2026级',2026),
+(5,'2027级',2027);
 /*!40000 ALTER TABLE `grade_info` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `login_log`;
@@ -166,26 +166,26 @@ CREATE TABLE `login_log` (
 LOCK TABLES `login_log` WRITE;
 /*!40000 ALTER TABLE `login_log` DISABLE KEYS */;
 INSERT INTO `login_log` VALUES
-(1,'admin','SUCCESS','127.0.0.1','鐧诲綍鎴愬姛','2026-06-21 17:07:10'),
-(2,'admin','SUCCESS','127.0.0.1','鐧诲綍鎴愬姛','2026-06-21 17:07:10'),
-(3,'admin','SUCCESS','127.0.0.1','鐧诲綍鎴愬姛','2026-06-21 17:07:10'),
-(4,'admin','SUCCESS','127.0.0.1','鐧诲綍鎴愬姛','2026-06-21 17:07:36'),
-(5,'admin','FAIL','127.0.0.1','鐢ㄦ埛鍚嶆垨瀵嗙爜閿欒','2026-06-21 17:08:05'),
-(6,'admin','SUCCESS','127.0.0.1','鐧诲綍鎴愬姛','2026-06-21 17:08:05'),
-(7,'admin','SUCCESS','127.0.0.1','鐧诲綍鎴愬姛','2026-06-21 17:10:43'),
-(8,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 17:14:17'),
+(1,'admin','SUCCESS','127.0.0.1','登录成功','2026-06-21 17:07:10'),
+(2,'admin','SUCCESS','127.0.0.1','登录成功','2026-06-21 17:07:10'),
+(3,'admin','SUCCESS','127.0.0.1','登录成功','2026-06-21 17:07:10'),
+(4,'admin','SUCCESS','127.0.0.1','登录成功','2026-06-21 17:07:36'),
+(5,'admin','FAIL','127.0.0.1','用户名或密码错误','2026-06-21 17:08:05'),
+(6,'admin','SUCCESS','127.0.0.1','登录成功','2026-06-21 17:08:05'),
+(7,'admin','SUCCESS','127.0.0.1','登录成功','2026-06-21 17:10:43'),
+(8,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 17:14:17'),
 (9,'admin','SUCCESS','0:0:0:0:0:0:0:1','Login success','2026-06-21 18:34:39'),
 (10,'admin','SUCCESS','0:0:0:0:0:0:0:1','Login success','2026-06-21 18:34:51'),
 (11,'admin','SUCCESS','0:0:0:0:0:0:0:1','Login success','2026-06-21 18:38:47'),
 (12,'lily','SUCCESS','0:0:0:0:0:0:0:1','Login success','2026-06-21 18:40:29'),
-(13,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:05:40'),
-(14,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:06:00'),
-(15,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:06:00'),
-(16,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:06:13'),
-(17,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:10:10'),
-(18,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:10:23'),
-(19,'admin','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:11:38'),
-(20,'lily','SUCCESS','0:0:0:0:0:0:0:1','鐧诲綍鎴愬姛','2026-06-21 19:30:03');
+(13,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:05:40'),
+(14,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:06:00'),
+(15,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:06:00'),
+(16,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:06:13'),
+(17,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:10:10'),
+(18,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:10:23'),
+(19,'admin','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:11:38'),
+(20,'lily','SUCCESS','0:0:0:0:0:0:0:1','登录成功','2026-06-21 19:30:03');
 /*!40000 ALTER TABLE `login_log` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `major`;
@@ -206,11 +206,11 @@ CREATE TABLE `major` (
 LOCK TABLES `major` WRITE;
 /*!40000 ALTER TABLE `major` DISABLE KEYS */;
 INSERT INTO `major` VALUES
-(1,1,'M01','璁＄畻鏈虹瀛︿笌鎶�鏈�'),
-(2,2,'M02','缃戠粶绌洪棿瀹夊叏'),
-(3,3,'M03','鐢靛瓙淇℃伅宸ョ▼'),
-(4,4,'M04','浜哄伐鏅鸿兘'),
-(5,5,'M05','娉曞');
+(1,1,'M01','计算机科学与技术'),
+(2,2,'M02','网络空间安全'),
+(3,3,'M03','电子信息工程'),
+(4,4,'M04','人工智能'),
+(5,5,'M05','法学');
 /*!40000 ALTER TABLE `major` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `masking_policy`;
@@ -343,20 +343,20 @@ CREATE TABLE `masking_type_dict` (
 LOCK TABLES `masking_type_dict` WRITE;
 /*!40000 ALTER TABLE `masking_type_dict` DISABLE KEYS */;
 INSERT INTO `masking_type_dict` VALUES
-('ADDRESS_LEVEL','鍦板潃灞傜骇鑴辨晱','{\"level\": \"string\"}'),
-('EMAIL_MASK','閭鑴辨晱','{\"description\": \"淇濈暀棣栧瓧绗﹀拰鍩熷悕\"}'),
-('FULL_MASK','瀹屽叏閬斀','{\"description\": \"浣跨敤鏄熷彿瀹屽叏閬斀\"}'),
-('GENERALIZATION','鍖洪棿娉涘寲','{\"step\": \"number\"}'),
-('HASH_MASK','鍝堝笇鑴辨晱','{\"salt\": \"string\", \"algorithm\": \"string\", \"description\": \"浣跨敤鎸囧畾鍝堝笇绠楁硶鐢熸垚涓嶅彲閫嗘憳瑕乗\"}'),
-('KEEP_PREFIX','淇濈暀鍓嶇紑','{\"prefix\": \"integer\"}'),
-('KEEP_PREFIX_SUFFIX','淇濈暀鍓嶅悗缂�','{\"prefix\": \"integer\", \"suffix\": \"integer\"}'),
-('KEEP_SUFFIX','淇濈暀鍚庣紑','{\"suffix\": \"integer\"}'),
-('KEEP_YEAR','浠呬繚鐣欏勾浠�','{\"description\": \"鏃ユ湡浠呬繚鐣欏勾浠絓\"}'),
-('NONE','涓嶈劚鏁�','{\"description\": \"杩斿洖鍘熷鏁版嵁锛屼笉杩涜鑴辨晱\"}'),
-('NO_MASK','涓嶈劚鏁�','{\"description\": \"杩斿洖鍘熷鏁版嵁\"}'),
-('NULL_MASK','缃┖鑴辨晱','{\"description\": \"灏嗘晱鎰熷瓧娈佃繑鍥炰负绌哄�糪\"}'),
-('PARTIAL_MASK','閮ㄥ垎閬洊','{\"mask_char\": \"string\", \"description\": \"淇濈暀鍓嶅悗閮ㄥ垎瀛楃锛屼腑闂村瓧绗﹁繘琛岄伄鐩朶\", \"prefix_keep\": \"integer\", \"suffix_keep\": \"integer\"}'),
-('RANGE_MASK','鍖洪棿娉涘寲','{\"range_size\": \"number\", \"description\": \"灏嗘暟鍊艰浆鎹负鎵�灞炲尯闂碶\"}');
+('ADDRESS_LEVEL','地址层级脱敏','{\"level\": \"string\"}'),
+('EMAIL_MASK','邮箱脱敏','{\"description\": \"保留首字符和域名\"}'),
+('FULL_MASK','完全遮蔽','{\"description\": \"使用星号完全遮蔽\"}'),
+('GENERALIZATION','区间泛化','{\"step\": \"number\"}'),
+('HASH_MASK','哈希脱敏','{\"salt\": \"string\", \"algorithm\": \"string\", \"description\": \"使用指定哈希算法生成不可逆摘要\"}'),
+('KEEP_PREFIX','保留前缀','{\"prefix\": \"integer\"}'),
+('KEEP_PREFIX_SUFFIX','保留前后缀','{\"prefix\": \"integer\", \"suffix\": \"integer\"}'),
+('KEEP_SUFFIX','保留后缀','{\"suffix\": \"integer\"}'),
+('KEEP_YEAR','仅保留年份','{\"description\": \"日期仅保留年份\"}'),
+('NONE','不脱敏','{\"description\": \"返回原始数据，不进行脱敏\"}'),
+('NO_MASK','不脱敏','{\"description\": \"返回原始数据\"}'),
+('NULL_MASK','置空脱敏','{\"description\": \"将敏感字段返回为空值\"}'),
+('PARTIAL_MASK','部分遮盖','{\"mask_char\": \"string\", \"description\": \"保留前后部分字符，中间字符进行遮盖\", \"prefix_keep\": \"integer\", \"suffix_keep\": \"integer\"}'),
+('RANGE_MASK','区间泛化','{\"range_size\": \"number\", \"description\": \"将数值转换为所属区间\"}');
 /*!40000 ALTER TABLE `masking_type_dict` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `permission`;
@@ -431,12 +431,12 @@ LOCK TABLES `role` WRITE;
 INSERT INTO `role` VALUES
 (1,'ADMIN','Administrator','System administrator role',1,1,'2026-06-21 18:33:32','2026-06-21 18:33:32'),
 (2,'USER','Normal User','Default user role',2,1,'2026-06-21 18:33:32','2026-06-21 18:33:32'),
-(3,'SUPER_ADMIN','Super Admin','鍔ㄦ�佽劚鏁忥細瓒呯骇绠＄悊鍛橈紝鍙煡鐪嬪師濮嬫晱鎰熸暟鎹�',101,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
-(4,'DATA_ADMIN','Data Admin','鍔ㄦ�佽劚鏁忥細鏁版嵁绠＄悊鍛橈紝鍙煡鐪嬪師濮嬫晱鎰熸暟鎹�',102,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
-(5,'TEACHER','Teacher','鍔ㄦ�佽劚鏁忥細鏁欏笀锛屾寜鏁欏鍦烘櫙閮ㄥ垎鑴辨晱',103,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
-(6,'ANALYST','Analyst','鍔ㄦ�佽劚鏁忥細鍒嗘瀽甯堬紝鎸夌粺璁″垎鏋愬満鏅劚鏁�/娉涘寲',104,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
-(7,'NORMAL','Normal','鍔ㄦ�佽劚鏁忥細鏅�氱敤鎴凤紝浣跨敤楂樺己搴﹂粯璁よ劚鏁�',105,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
-(8,'STUDENT','Student','鍔ㄦ�佽劚鏁忥細瀛︾敓鏌ョ湅鏈汉淇℃伅涓庢垚缁�',106,1,'2026-06-21 22:38:54','2026-06-21 22:38:54');
+(3,'SUPER_ADMIN','Super Admin','动态脱敏：超级管理员，可查看原始敏感数据',101,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
+(4,'DATA_ADMIN','Data Admin','动态脱敏：数据管理员，可查看原始敏感数据',102,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
+(5,'TEACHER','Teacher','动态脱敏：教师，按教学场景部分脱敏',103,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
+(6,'ANALYST','Analyst','动态脱敏：分析师，按统计分析场景脱敏/泛化',104,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
+(7,'NORMAL','Normal','动态脱敏：普通用户，使用高强度默认脱敏',105,1,'2026-06-21 21:35:29','2026-06-21 21:35:29'),
+(8,'STUDENT','Student','动态脱敏：学生查看本人信息与成绩',106,1,'2026-06-21 22:38:54','2026-06-21 22:38:54');
 /*!40000 ALTER TABLE `role` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `role_permission`;
@@ -516,11 +516,11 @@ CREATE TABLE `semester_info` (
 LOCK TABLES `semester_info` WRITE;
 /*!40000 ALTER TABLE `semester_info` DISABLE KEYS */;
 INSERT INTO `semester_info` VALUES
-(1,'2023-2024',1,'2023绉�'),
-(2,'2023-2024',2,'2024鏄�'),
-(3,'2024-2025',1,'2024绉�'),
-(4,'2024-2025',2,'2025鏄�'),
-(5,'2025-2026',1,'2025绉�');
+(1,'2023-2024',1,'2023秋'),
+(2,'2023-2024',2,'2024春'),
+(3,'2024-2025',1,'2024秋'),
+(4,'2024-2025',2,'2025春'),
+(5,'2025-2026',1,'2025秋');
 /*!40000 ALTER TABLE `semester_info` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `sensitive_field`;
@@ -573,11 +573,11 @@ CREATE TABLE `student` (
 LOCK TABLES `student` WRITE;
 /*!40000 ALTER TABLE `student` DISABLE KEYS */;
 INSERT INTO `student` VALUES
-(1,1,'2023001','寮犱紵','M','2005-03-12',1),
-(2,2,'2023002','鏉庡','F','2005-06-21',1),
-(3,3,'2024001','鐜嬪己','M','2006-01-18',1),
-(4,4,'2025001','璧垫晱','F','2007-02-10',1),
-(5,5,'2026001','闄堟旦','M','2008-09-05',1);
+(1,1,'2023001','张伟','M','2005-03-12',1),
+(2,2,'2023002','李娜','F','2005-06-21',1),
+(3,3,'2024001','王强','M','2006-01-18',1),
+(4,4,'2025001','赵敏','F','2007-02-10',1),
+(5,5,'2026001','陈浩','M','2008-09-05',1);
 /*!40000 ALTER TABLE `student` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `student_score`;
@@ -628,11 +628,11 @@ CREATE TABLE `student_sensitive` (
 LOCK TABLES `student_sensitive` WRITE;
 /*!40000 ALTER TABLE `student_sensitive` DISABLE KEYS */;
 INSERT INTO `student_sensitive` VALUES
-(1,'13800000001','zhangwei@edu.com','510101200503120011','鎴愰兘楂樻柊鍖�',120000.00,'6222020000000001'),
-(2,'13800000002','lina@edu.com','510101200506210022','鎴愰兘姝︿警鍖�',98000.00,'6222020000000002'),
-(3,'13800000003','wangqiang@edu.com','510101200601180033','鎴愰兘閿︽睙鍖�',150000.00,'6222020000000003'),
-(4,'13800000004','zhaomin@edu.com','510101200702100044','鎴愰兘鎴愬崕鍖�',110000.00,'6222020000000004'),
-(5,'13800000005','chenhao@edu.com','510101200809050055','鎴愰兘鍙屾祦鍖�',130000.00,'6222020000000005');
+(1,'13800000001','zhangwei@edu.com','510101200503120011','成都高新区',120000.00,'6222020000000001'),
+(2,'13800000002','lina@edu.com','510101200506210022','成都武侯区',98000.00,'6222020000000002'),
+(3,'13800000003','wangqiang@edu.com','510101200601180033','成都锦江区',150000.00,'6222020000000003'),
+(4,'13800000004','zhaomin@edu.com','510101200702100044','成都成华区',110000.00,'6222020000000004'),
+(5,'13800000005','chenhao@edu.com','510101200809050055','成都双流区',130000.00,'6222020000000005');
 /*!40000 ALTER TABLE `student_sensitive` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `test`;
