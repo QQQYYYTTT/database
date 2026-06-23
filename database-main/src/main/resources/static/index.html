@@ -10,26 +10,27 @@
 <div id="app" class="admin-shell" :class="{ collapsed: isCollapsed }" v-cloak>
     <aside class="admin-sidebar">
         <div class="sidebar-brand">
-            <div class="brand-logo">权限</div>
+            <div class="brand-logo">TX</div>
             <div v-if="!isCollapsed" class="brand-copy">
-                <strong>权限管理控制台</strong>
-                <span>Spring Security + JWT 动态权限</span>
+                <strong>基于RBAC的高校学生信息动态脱敏系统</strong>
+                <span>数据库课程设计</span>
             </div>
         </div>
 
         <nav class="sidebar-menu" v-if="flatMenus.length > 0">
             <button
-                v-for="menu in flatMenus"
+                v-for="menu in visibleMenus"
                 :key="menu.id"
                 class="sidebar-menu-item"
                 type="button"
-                :class="{ active: activeMenu === menu.menuKey }"
+                :class="{ active: activeMenu === menu.menuKey, 'is-parent': menu.hasChildren, expanded: menu.expanded }"
                 :style="{ paddingLeft: `${14 + menu.depth * 18}px` }"
                 :title="menu.permissionName"
                 @click="activateMenu(menu.menuKey)"
             >
                 <span class="menu-svg" v-html="resolveMenuIcon(menu.icon)"></span>
                 <span v-if="!isCollapsed" class="menu-label">{{ menu.permissionName }}</span>
+                <span v-if="menu.hasChildren && !isCollapsed" class="menu-caret">{{ isMenuExpanded(menu.menuKey) ? '-' : '+' }}</span>
             </button>
         </nav>
 
@@ -56,10 +57,10 @@
             </div>
 
             <div class="admin-header-right">
-                <div class="header-user">
+                <button class="header-user profile-entry" type="button" @click="openProfileSection">
                     <span class="header-user-icon" v-html="pageIcons.user"></span>
                     <span>{{ currentUser.userName || '未知用户' }}</span>
-                </div>
+                </button>
                 <span class="header-role">{{ currentRoleText }}</span>
                 <button class="header-logout" type="button" title="退出登录" @click="logout">
                     <span v-html="pageIcons.logout"></span>
@@ -83,6 +84,344 @@
                 <section class="table-panel empty-shell">
                     <strong>暂无可展示页面</strong>
                     <p>当前账号没有可访问的菜单，请联系管理员分配权限。</p>
+                </section>
+            </section>
+
+            <section v-else-if="activeMenu === 'grade-analytics'" class="page-block analytics-page">
+                <section class="analytics-overview">
+                    <div class="analytics-role-card">
+                        <strong>成绩分析视角</strong>
+                        <div class="analytics-role-meta">
+                            <span class="analytics-tag">{{ gradeAnalytics.roleName || '--' }}</span>
+                            <span class="analytics-tag muted">{{ gradeAnalytics.granularity || '聚合统计' }}</span>
+                        </div>
+                        <p>{{ gradeAnalytics.scopeNote || '仅展示聚合统计结果，不返回学生敏感明细。' }}</p>
+                    </div>
+                    <div class="analytics-summary-grid">
+                        <article class="analytics-summary-card" v-for="card in gradeAnalytics.summaryCards" :key="card.label">
+                            <span>{{ card.label }}</span>
+                            <strong>{{ card.value }}</strong>
+                            <p>{{ card.hint }}</p>
+                        </article>
+                    </div>
+                </section>
+
+                <section v-if="gradeAnalyticsError" class="table-panel state-block state-danger">
+                    <strong>学生成绩分析加载失败</strong>
+                    <p>{{ gradeAnalyticsError }}</p>
+                </section>
+
+                <section v-else-if="gradeAnalyticsLoading" class="table-panel state-block">
+                    <strong>学生成绩分析加载中</strong>
+                    <p>正在汇总学院、专业、课程排名与成绩分布，请稍候。</p>
+                </section>
+
+                <template v-else>
+                    <section class="analytics-grid analytics-grid-two">
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>学院平均成绩排名</strong>
+                                <span>按学院聚合平均分，展示当前角色可查看的统计结果。</span>
+                            </div>
+                            <div class="analytics-chart analytics-chart-list">
+                                <div v-if="gradeAnalytics.collegeRanking.length === 0" class="analytics-chart-empty">暂无统计数据</div>
+                                <article v-for="(item, index) in gradeAnalytics.collegeRanking" :key="`college-chart-${item.name}-${index}`" class="metric-bar-row">
+                                    <div class="metric-bar-head">
+                                        <span class="metric-bar-rank">{{ index + 1 }}</span>
+                                        <span class="metric-bar-label">{{ item.name || '--' }}</span>
+                                        <strong>{{ formatAnalyticsNumber(item.averageScore) }}</strong>
+                                    </div>
+                                    <div class="metric-bar-track">
+                                        <div class="metric-bar-fill" :style="rankingBarStyle(item.averageScore, index)"></div>
+                                    </div>
+                                    <p class="metric-bar-meta">样本量 {{ item.sampleCount || 0 }}</p>
+                                </article>
+                            </div>
+                        </article>
+
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>专业平均成绩排名</strong>
+                                <span>按专业横向比较平均成绩与样本量。</span>
+                            </div>
+                            <div class="analytics-chart analytics-chart-list">
+                                <div v-if="gradeAnalytics.majorRanking.length === 0" class="analytics-chart-empty">暂无统计数据</div>
+                                <article v-for="(item, index) in gradeAnalytics.majorRanking" :key="`major-chart-${item.name}-${index}`" class="metric-bar-row">
+                                    <div class="metric-bar-head">
+                                        <span class="metric-bar-rank">{{ index + 1 }}</span>
+                                        <span class="metric-bar-label">{{ item.name || '--' }}</span>
+                                        <strong>{{ formatAnalyticsNumber(item.averageScore) }}</strong>
+                                    </div>
+                                    <div class="metric-bar-track">
+                                        <div class="metric-bar-fill" :style="rankingBarStyle(item.averageScore, index)"></div>
+                                    </div>
+                                    <p class="metric-bar-meta">样本量 {{ item.sampleCount || 0 }}</p>
+                                </article>
+                            </div>
+                        </article>
+
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>课程平均成绩排名</strong>
+                                <span>复用课程与成绩记录，观察课程层面的成绩差异。</span>
+                            </div>
+                            <div class="analytics-chart analytics-chart-list">
+                                <div v-if="gradeAnalytics.courseRanking.length === 0" class="analytics-chart-empty">暂无统计数据</div>
+                                <article v-for="(item, index) in gradeAnalytics.courseRanking" :key="`course-chart-${item.name}-${index}`" class="metric-bar-row">
+                                    <div class="metric-bar-head">
+                                        <span class="metric-bar-rank">{{ index + 1 }}</span>
+                                        <span class="metric-bar-label">{{ item.name || '--' }}</span>
+                                        <strong>{{ formatAnalyticsNumber(item.averageScore) }}</strong>
+                                    </div>
+                                    <div class="metric-bar-track">
+                                        <div class="metric-bar-fill" :style="rankingBarStyle(item.averageScore, index)"></div>
+                                    </div>
+                                    <p class="metric-bar-meta">样本量 {{ item.sampleCount || 0 }}</p>
+                                </article>
+                            </div>
+                        </article>
+
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>成绩分布统计</strong>
+                                <span>按五个区间统计成绩分布，便于快速识别整体结构。</span>
+                            </div>
+                            <div class="analytics-chart analytics-chart-distribution">
+                                <div v-if="gradeAnalytics.scoreDistribution.length === 0" class="analytics-chart-empty">暂无统计数据</div>
+                                <template v-else>
+                                    <div class="distribution-stack">
+                                        <div v-for="(item, index) in gradeAnalytics.scoreDistribution" :key="`distribution-stack-${item.label}-${index}`" class="distribution-stack-item">
+                                            <div class="distribution-stack-fill" :style="distributionBarStyle(item.count, gradeAnalytics.scoreDistribution, index)"></div>
+                                        </div>
+                                    </div>
+                                    <div class="distribution-grid">
+                                        <article v-for="(item, index) in gradeAnalytics.scoreDistribution" :key="`distribution-card-${item.label}-${index}`" class="distribution-card">
+                                            <span>{{ item.label || '--' }}</span>
+                                            <strong>{{ item.count || 0 }}</strong>
+                                            <p>{{ formatAnalyticsPercent(distributionPercent(item.count, gradeAnalytics.scoreDistribution)) }}</p>
+                                        </article>
+                                    </div>
+                                </template>
+                            </div>
+                        </article>
+                    </section>
+
+                    <section class="analytics-grid analytics-grid-two">
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>学院排名明细</strong>
+                                <span>包含平均分与样本量，方便快速核对图表结果。</span>
+                            </div>
+                            <div class="table-scroll">
+                                <table class="system-table analytics-table-compact">
+                                    <thead>
+                                    <tr>
+                                        <th>学院</th>
+                                        <th>平均分</th>
+                                        <th>样本量</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr v-if="gradeAnalytics.collegeRanking.length === 0">
+                                        <td colspan="3" class="empty-cell">暂无统计数据</td>
+                                    </tr>
+                                    <tr v-for="item in gradeAnalytics.collegeRanking" :key="`college-${item.name}`">
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ formatAnalyticsNumber(item.averageScore) }}</td>
+                                        <td>{{ item.sampleCount }}</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </article>
+
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>课程排名明细</strong>
+                                <span>课程维度的聚合结果，仅展示统计值，不展示敏感明细。</span>
+                            </div>
+                            <div class="table-scroll">
+                                <table class="system-table analytics-table-compact">
+                                    <thead>
+                                    <tr>
+                                        <th>课程</th>
+                                        <th>平均分</th>
+                                        <th>样本量</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr v-if="gradeAnalytics.courseRanking.length === 0">
+                                        <td colspan="3" class="empty-cell">暂无统计数据</td>
+                                    </tr>
+                                    <tr v-for="item in gradeAnalytics.courseRanking" :key="`course-${item.name}`">
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ formatAnalyticsNumber(item.averageScore) }}</td>
+                                        <td>{{ item.sampleCount }}</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
+                </template>
+            </section>
+
+            <section v-else-if="activeMenu === 'sensitive-analytics'" class="page-block analytics-page">
+                <section class="analytics-overview">
+                    <div class="analytics-role-card">
+                        <strong>敏感数据分析视角</strong>
+                        <div class="analytics-role-meta">
+                            <span class="analytics-tag">{{ sensitiveAnalytics.roleName || '--' }}</span>
+                            <span class="analytics-tag muted">{{ sensitiveAnalytics.granularity || '聚合脱敏' }}</span>
+                        </div>
+                        <p>{{ sensitiveAnalytics.scopeNote || '展示敏感字段目录、覆盖率和当前角色的真实脱敏效果。' }}</p>
+                    </div>
+                    <div class="analytics-summary-grid">
+                        <article class="analytics-summary-card" v-for="card in sensitiveAnalytics.summaryCards" :key="card.label">
+                            <span>{{ card.label }}</span>
+                            <strong>{{ card.value }}</strong>
+                            <p>{{ card.hint }}</p>
+                        </article>
+                    </div>
+                </section>
+
+                <section v-if="sensitiveAnalyticsError" class="table-panel state-block state-danger">
+                    <strong>敏感数据分析加载失败</strong>
+                    <p>{{ sensitiveAnalyticsError }}</p>
+                </section>
+
+                <section v-else-if="sensitiveAnalyticsLoading" class="table-panel state-block">
+                    <strong>敏感数据分析加载中</strong>
+                    <p>正在整理字段目录、覆盖率和当前角色的实际脱敏效果，请稍候。</p>
+                </section>
+
+                <template v-else>
+                    <section class="analytics-grid analytics-grid-two">
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>敏感等级分布</strong>
+                                <span>基于 sensitive_field 目录统计当前角色关联字段的敏感等级结构。</span>
+                            </div>
+                            <div class="analytics-chart analytics-chart-list">
+                                <div v-if="sensitiveAnalytics.levelDistribution.length === 0" class="analytics-chart-empty">暂无统计数据</div>
+                                <article v-for="(item, index) in sensitiveAnalytics.levelDistribution" :key="`level-chart-${item.level}-${index}`" class="metric-bar-row">
+                                    <div class="metric-bar-head">
+                                        <span class="metric-bar-rank">{{ index + 1 }}</span>
+                                        <span class="metric-bar-label">{{ item.level || '--' }}</span>
+                                        <strong>{{ item.count || 0 }}</strong>
+                                    </div>
+                                    <div class="metric-bar-track">
+                                        <div class="metric-bar-fill metric-bar-fill-strong" :style="countBarStyle(item.count, sensitiveAnalytics.levelDistribution, index)"></div>
+                                    </div>
+                                </article>
+                            </div>
+                        </article>
+
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>核心字段覆盖率</strong>
+                                <span>统计手机号、邮箱、身份证号、家庭收入的填写情况。</span>
+                            </div>
+                            <div class="analytics-chart analytics-chart-list">
+                                <div v-if="sensitiveAnalytics.coverage.length === 0" class="analytics-chart-empty">暂无统计数据</div>
+                                <article v-for="(item, index) in sensitiveAnalytics.coverage" :key="`coverage-chart-${item.fieldKey}-${index}`" class="metric-bar-row">
+                                    <div class="metric-bar-head">
+                                        <span class="metric-bar-label">{{ item.fieldLabel || '--' }}</span>
+                                        <strong>{{ formatAnalyticsPercent(item.coverageRate) }}</strong>
+                                    </div>
+                                    <div class="metric-bar-track">
+                                        <div class="metric-bar-fill metric-bar-fill-calm" :style="coverageBarStyle(item.coverageRate, index)"></div>
+                                    </div>
+                                    <p class="metric-bar-meta">已填写 {{ item.filledCount || 0 }} / {{ item.totalCount || 0 }}</p>
+                                </article>
+                            </div>
+                        </article>
+
+                        <article class="table-panel analytics-card analytics-card-wide">
+                            <div class="panel-heading">
+                                <strong>敏感字段目录统计</strong>
+                                <span>展示字段名称、敏感等级、当前脱敏策略以及策略来源。</span>
+                            </div>
+                            <div class="table-scroll">
+                                <table class="system-table analytics-table-compact">
+                                    <thead>
+                                    <tr>
+                                        <th>字段名称</th>
+                                        <th>敏感类型</th>
+                                        <th>敏感等级</th>
+                                        <th>当前脱敏策略</th>
+                                        <th>策略来源</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr v-if="sensitiveAnalytics.fieldCatalog.length === 0">
+                                        <td colspan="5" class="empty-cell">暂无敏感字段目录数据</td>
+                                    </tr>
+                                    <tr v-for="item in sensitiveAnalytics.fieldCatalog" :key="`${item.fieldLabel}-${item.currentPolicy}`">
+                                        <td>{{ item.fieldLabel }}</td>
+                                        <td>{{ item.sensitiveType || '--' }}</td>
+                                        <td>{{ item.sensitiveLevel || '--' }}</td>
+                                        <td>{{ item.currentPolicy || '--' }}</td>
+                                        <td>{{ item.policySource || '--' }}</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
+
+                    <section class="analytics-grid analytics-grid-two">
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>当前角色可见性分析</strong>
+                                <span>直接调用现有数据库脱敏函数，展示当前登录角色的真实可见效果。</span>
+                            </div>
+                            <div class="analytics-sample-list">
+                                <article class="analytics-sample-item" v-for="item in sensitiveAnalytics.visibilitySamples" :key="item.fieldLabel">
+                                    <span>{{ item.fieldLabel }}</span>
+                                    <strong>{{ item.maskedValue || '--' }}</strong>
+                                    <p>{{ item.maskingTypeName || '--' }} · {{ item.policySource || '--' }}</p>
+                                </article>
+                            </div>
+                        </article>
+
+                        <article class="table-panel analytics-card">
+                            <div class="panel-heading">
+                                <strong>覆盖率明细</strong>
+                                <span>辅助核对图表中的覆盖率统计结果。</span>
+                            </div>
+                            <div class="table-scroll">
+                                <table class="system-table analytics-table-compact">
+                                    <thead>
+                                    <tr>
+                                        <th>字段</th>
+                                        <th>已填写</th>
+                                        <th>总数</th>
+                                        <th>覆盖率</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr v-if="sensitiveAnalytics.coverage.length === 0">
+                                        <td colspan="4" class="empty-cell">暂无覆盖率数据</td>
+                                    </tr>
+                                    <tr v-for="item in sensitiveAnalytics.coverage" :key="item.fieldKey">
+                                        <td>{{ item.fieldLabel }}</td>
+                                        <td>{{ item.filledCount }}</td>
+                                        <td>{{ item.totalCount }}</td>
+                                        <td>{{ formatAnalyticsPercent(item.coverageRate) }}</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
+                </template>
+            </section>
+
+            <section v-else-if="activeMenu === 'student-data-center' || activeMenu === 'analytics-center' || activeMenu === 'security-center' || activeMenu === 'system-management'" class="page-block">
+                <section class="table-panel empty-shell">
+                    <strong>{{ currentSection.headerTitle }}</strong>
+                    <p>{{ currentSection.description }}</p>
                 </section>
             </section>
 
@@ -1648,6 +1987,7 @@
 </div>
 
 <script src="/assets/vendor/vue.global.prod.js"></script>
+<script src="/assets/vendor/echarts.common.min.js"></script>
 <script src="/assets/js/index.js"></script>
 </body>
 </html>
